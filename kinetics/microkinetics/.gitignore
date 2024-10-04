@@ -1,0 +1,9 @@
+*.pt
+work
+tmpdir
+tmp.db
+*.d[0-9]*
+*.sh.o*
+*.sh.e*
+**/__pycache__/**
+*.egg-info/
