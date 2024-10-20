@@ -31,7 +31,6 @@ def get_hydration_energy(cif_file):
     # E_O2_corr = 2 * ((E_H2O + ZPE_H2O) - (E_H2 + ZPE_H2)) - ZPE_O2
     # E_H2_corr = E_H2 + ZPE_H2
     E_H2O_corr = E_H2O + ZPE_H2O
-    # energy_of_H2O_molecule = E_H2O + ZPE_H2O
 
     # --- Read the CIF file
     atoms = read(cif_file)
