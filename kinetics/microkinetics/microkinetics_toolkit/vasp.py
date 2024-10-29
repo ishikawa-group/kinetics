@@ -34,19 +34,21 @@ def set_vasp_calculator(atom_type="molecule", dfttype="gga", kpt=1, do_optimizat
 
     # common setting
     xc = "pbe"
-    encut = 500.0
+    encut = 400.0
     ediff  = 1.0e-4
     ediffg = -10.0e-2
     lorbit = 10
     algo = "Normal"
     nelmin = 5
     nelm = 30
-    npar = 4
+    npar = 10  # change according to the computational environment
     nsim = npar
     ispin = 2
     kgamma = True
     setups = {"Cr": "_pv", "Mn": "_pv", "Fe": "_pv"}
     lasph = True
+    lwave = False
+    lcharg = False
 
     # DFT + U
     if dfttype == "plus_u":
@@ -69,8 +71,8 @@ def set_vasp_calculator(atom_type="molecule", dfttype="gga", kpt=1, do_optimizat
     # geometry optimization related
     if do_optimization:
         ibrion = 2
-        potim = 0.1
-        nsw = 1
+        potim = 0.15
+        nsw = 5
     else:
         ibrion = 0
         potim = 0.0
@@ -80,15 +82,10 @@ def set_vasp_calculator(atom_type="molecule", dfttype="gga", kpt=1, do_optimizat
                 ibrion=ibrion, potim=potim, nsw=nsw, algo=algo, ldipol=ldipol, idipol=idipol, setups=setups, lasph=True,
                 ispin=ispin, npar=npar, nsim=nsim, nelmin=nelmin, nelm=nelm, lreal=lreal, lorbit=lorbit, kgamma=kgamma,
                 ldau=ldau, ldautype=ldautype, ldau_luj=ldau_luj,
+                lwave=lwave, lcharg=lcharg,
                 )
 
     return calc
-
-
-def set_calc_directory(atoms=None, dirname=None, formula=None):
-    directory = "work_" + dirname + "/" + formula
-    atoms.calc.directory = directory
-    return None
 
 
 def set_lmaxmix(atoms=None):
