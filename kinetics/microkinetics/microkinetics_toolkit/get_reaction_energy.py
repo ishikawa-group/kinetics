@@ -1,9 +1,23 @@
 def register(db=None, atoms=None, formula=None, data=None):
+    formula = atoms.get_chemical_formula()
+    db.write(atoms, name=formula, data=data)
+    print(f"Registering {formula} to database done.", flush=True)
     return None
 
 
 def get_past_atoms(db=None, atoms=None):
-    return energy, first
+    formula = atoms.get_chemical_formula()
+    try:
+        id_ = db.get(name=formula).id
+        print(f"Found {formula} from database.", flush=True)
+        first = False
+        atoms = db.get_atoms(id=id_).copy()
+    except:
+        print(f"Not found {formula} from database.", flush=True)
+        first = True
+        atoms = atoms
+    finally:
+        return atoms, first
 
 
 def get_past_energy(db=None, atoms=None):
@@ -96,7 +110,7 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
                     try:
                         id_ = database.get(name=mol[0]).id
                     except KeyError:
-                        print(f"{mol[0]} not found in {database_file}")
+                        print(f"{mol[0]} not found in {database_file}", flush=True)
                         quit()
                     else:
                         atoms = database.get_atoms(id=id_)
@@ -129,6 +143,17 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
                     # offset = (0.0, 0.25)  # for middle cell
                     offset = (0.0, 0.50)  # for smallest cell
                     position = adsorbate.positions[0][:2]
+
+                    # check whether the bare surface is calcualted before
+                    surf_, first = get_past_atoms(db=tmpdb, atoms=surf_)
+                    if first:
+                        formula = surf_.get_chemical_formula()
+                        directory = "work_" + dirname + "/" + formula
+                        surf_.calc = calc_surf
+                        surf_.calc.directory = directory
+                        set_lmaxmix(atoms=surf_)
+                        surf_.get_potential_energy()
+                        register(db=tmpdb, atoms=surf_)
 
                     atoms = surf_.copy()
                     add_adsorbate(atoms, adsorbate, offset=offset, position=position, height=height)

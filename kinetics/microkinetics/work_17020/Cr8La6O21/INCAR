@@ -1,0 +1,26 @@
+INCAR created by Atomic Simulation Environment
+ ENCUT = 400.000000
+ POTIM = 0.150000
+ EDIFF = 1.00e-04
+ EDIFFG = -1.00e-01
+ ALGO = Normal
+ GGA = PE
+ PREC = Normal
+ IBRION = 2
+ IDIPOL = 3
+ ISMEAR = 0
+ ISPIN = 2
+ LMAXMIX = 6
+ LORBIT = 10
+ NELM = 30
+ NELMIN = 5
+ NPAR = 10
+ NSIM = 10
+ NSW = 5
+ KGAMMA = .TRUE.
+ LASPH = .TRUE.
+ LCHARG = .FALSE.
+ LDIPOL = .TRUE.
+ LWAVE = .FALSE.
+ LREAL = .TRUE.
+ MAGMOM = 8*1.0000 26*0.0000 1*2.0000
