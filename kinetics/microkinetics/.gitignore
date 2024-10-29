@@ -2,6 +2,7 @@
 work
 tmpdir
 tmp.db
+*.png
 *.d[0-9]*
 *.sh.o*
 *.sh.e*
