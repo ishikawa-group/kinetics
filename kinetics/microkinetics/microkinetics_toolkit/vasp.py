@@ -72,7 +72,7 @@ def set_vasp_calculator(atom_type="molecule", dfttype="gga", kpt=1, do_optimizat
     if do_optimization:
         ibrion = 2
         potim = 0.15
-        nsw = 5
+        nsw = 10
     else:
         ibrion = 0
         potim = 0.0

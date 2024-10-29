@@ -1,7 +1,6 @@
 def register(db=None, atoms=None, formula=None, data=None):
     formula = atoms.get_chemical_formula()
     db.write(atoms, name=formula, data=data)
-    print(f"Registering {formula} to database done.", flush=True)
     return None
 
 
@@ -9,11 +8,9 @@ def get_past_atoms(db=None, atoms=None):
     formula = atoms.get_chemical_formula()
     try:
         id_ = db.get(name=formula).id
-        print(f"Found {formula} from database.", flush=True)
         first = False
         atoms = db.get_atoms(id=id_).copy()
     except:
-        print(f"Not found {formula} from database.", flush=True)
         first = True
         atoms = atoms
     finally:
@@ -147,6 +144,7 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
                     # check whether the bare surface is calcualted before
                     surf_, first = get_past_atoms(db=tmpdb, atoms=surf_)
                     if first:
+                        print(f"First time to calculate bare surface.", flush=True)
                         formula = surf_.get_chemical_formula()
                         directory = "work_" + dirname + "/" + formula
                         surf_.calc = calc_surf
@@ -154,6 +152,8 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
                         set_lmaxmix(atoms=surf_)
                         surf_.get_potential_energy()
                         register(db=tmpdb, atoms=surf_)
+                    else:
+                        print(f"Bare surface found in database.", flush=True)
 
                     atoms = surf_.copy()
                     add_adsorbate(atoms, adsorbate, offset=offset, position=position, height=height)
