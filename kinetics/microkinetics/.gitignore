@@ -1,10 +1,11 @@
 *.pt
-work
-tmpdir
-tmp.db
+tmp*.db
 *.png
 *.d[0-9]*
 *.sh.o*
 *.sh.e*
-**/__pycache__/**
 *.egg-info/
+
+work*/
+tmpdir*/
+**/__pycache__/**
