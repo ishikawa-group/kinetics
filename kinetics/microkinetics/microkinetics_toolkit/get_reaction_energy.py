@@ -1,39 +1,33 @@
-def register(db=None, atoms=None, formula=None, data=None):
-    if db is None:
-        print("in registar: no database is given")
-        quit()
-
-    if atoms is None:
-        print("in registar: nothing to registar")
-        quit()
-
-    id = db.reserve(name=formula)
-    if id is not None:
-        name = formula
-        db.write(atoms, name=name, id=id, data=data)
+def register(db=None, atoms=None, data=None):
+    formula = atoms.get_chemical_formula()
+    db.write(atoms, name=formula, data=data)
+    return None
 
 
 def get_past_atoms(db=None, atoms=None):
-    if db is None:
-        print("in get_past_data: no database is given")
-        quit()
-
-    if atoms is None:
-        print("in get_past_data: nothing to registar")
-        quit()
-
     formula = atoms.get_chemical_formula()
     try:
-        past = tmpdb.get(name=surf_formula)
-    except:
-        # not found - return atoms as is
-        first = True
-        return atoms, first
-    else:
-        # found - return old atoms
+        id_ = db.get(name=formula).id
         first = False
-        atoms_ = tmpdb.get_atoms(id=past.id).copy()
-        return atoms_, first
+        atoms = db.get_atoms(id=id_).copy()
+    except:
+        first = True
+        atoms = atoms
+    finally:
+        return atoms, first
+
+
+def get_past_energy(db=None, atoms=None):
+    formula = atoms.get_chemical_formula()
+    try:
+        id_ = db.get(name=formula).id
+        first = False
+        energy = db.get(id=id_).data.energy
+    except:
+        first = True
+        energy = None
+    finally:
+        return energy, first
 
 
 def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt", verbose=False, dirname=None):
@@ -50,7 +44,6 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
     from microkinetics_toolkit.utils import get_number_of_reaction
     from microkinetics_toolkit.utils import get_reac_and_prod
     from microkinetics_toolkit.vasp import set_vasp_calculator
-    from microkinetics_toolkit.vasp import set_directory
     from microkinetics_toolkit.vasp import set_lmaxmix
 
     r_ads, r_site, r_coef, p_ads, p_site, p_coef = get_reac_and_prod(reaction_file)
@@ -92,16 +85,19 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
     # spin-polarized or not for adsorbed molecules
     closed_shell_molecules = ["H2", "HO", "H2O"]
 
+    # magnetic elements: B in ABO3 perovskite
+    magnetic_elements = ["Mn", "Fe", "Cr"]
+
     for irxn in range(rxn_num):
         energies = {"reactant": 0.0, "product": 0.0}
 
         for side in ["reactant", "product"]:
-            surface_ = surface.copy()
+            surf_ = surface.copy()
 
             # assume high spin for surface
-            symbols = surface_.get_chemical_symbols()
-            init_magmom = [1.0 if x == "Mn" else 0.0 for x in symbols]
-            surface_.set_initial_magnetic_moments(init_magmom)
+            symbols = surf_.get_chemical_symbols()
+            init_magmom = [1.0 if x in magnetic_elements else 0.0 for x in symbols]
+            surf_.set_initial_magnetic_moments(init_magmom)
 
             if side == "reactant":
                 mols, sites, coefs = r_ads[irxn], r_site[irxn], r_coef[irxn]
@@ -115,12 +111,12 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
 
             for imol, mol in enumerate(mols):
                 if mol[0] == "surf":
-                    atoms = surface_
+                    atoms = surf_
                 else:
                     try:
                         id_ = database.get(name=mol[0]).id
                     except KeyError:
-                        print(f"{mol[0]} not found in {database_file}")
+                        print(f"{mol[0]} not found in {database_file}", flush=True)
                         quit()
                     else:
                         atoms = database.get_atoms(id=id_)
@@ -134,6 +130,7 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
                     else:
                         atoms.calc = calc_mol
                         atoms.cell = [20, 20, 20]
+                        atoms.pbc = True
                         atoms.center()
                         if mol[0] in closed_shell_molecules:
                             atoms.calc.set(ispin=1)
@@ -149,71 +146,40 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
                         adsorbate.rotate(*rotation[tmp])
 
                     height = 1.8
-                    offset = (0.0, 0.25)  # (0.0, 0.50) for smallest cell
+                    offset = (0.0, 0.25)  # for middle cell
+                    # offset = (0.0, 0.50)  # for smallest cell
                     position = adsorbate.positions[0][:2]
 
-                    # get surf part from tmpdb of ads + surf case, as it should be done beforehand
-                    surf_formula = surface_.get_chemical_formula()
-                    surface_, first = get_past_atoms(db=tmpdb, atoms=surface_)
+                    # check whether the bare surface is calcualted before
+                    surf_, first = get_past_atoms(db=tmpdb, atoms=surf_)
                     if first:
-                        print("first time for bare surface - do calculation here")
+                        formula = surf_.get_chemical_formula()
                         directory = "work_" + dirname + "/" + formula
-                        set_calc_directory(atoms=atoms, directory=directory)
-                        set_lmaxmix(atoms=atoms)
-                        energy = atoms.get_potential_energy()
-                        register(db=tmpdb, atoms=atoms, formula=formula, data={"energy": energy})
-                    else:
-                        print("found data for bare surface")
-                        add_adsorbate(surface_, adsorbate, offset=offset, position=position, height=height)
+                        surf_.calc = calc_surf
+                        surf_.calc.directory = directory
+                        set_lmaxmix(atoms=surf_)
+                        surf_.get_potential_energy()
+                        register(db=tmpdb, atoms=surf_)
 
-                    atoms = surface_.copy()
+                    atoms = surf_.copy()
+                    add_adsorbate(atoms, adsorbate, offset=offset, position=position, height=height)
                     atoms.calc = calc_surf
-                    # view(atoms)
                 else:
                     print("some error")
                     quit()
 
-                # Identification done. Look for temporary database for identical system.
+                # setting atoms done
+                energy, first = get_past_energy(db=tmpdb, atoms=atoms)
                 formula = atoms.get_chemical_formula()
-
-                try:
-                    previous = tmpdb.get(name=formula)
-                except KeyError:
-                    first_time = True
-                    if verbose:
-                        print(f"Calculating {formula} ... new calculation", flush=True)
-                else:
-                    first_time = False
-                    if verbose:
-                        print(f"Calculating {formula} ... reuse previous value", flush=True)
-
-                if not first_time:
-                    # use previous energy
-                    energy = tmpdb.get(id=previous.id).data.energy
-                else:
-                    # perform energy calculation
+                if first:
+                    print(f"First time to calculate {formula}", flush=True)
                     directory = "work_" + dirname + "/" + formula
-                    set_calc_directory(atoms=atoms, directory=directory)
+                    atoms.calc.directory = directory
                     set_lmaxmix(atoms=atoms)
                     energy = atoms.get_potential_energy()
+                    register(db=tmpdb, atoms=atoms, data={"energy": energy})
 
                 E += coefs[imol]*energy
-
-                # recording to database
-                if first_time:
-                    register(db=tmpdb, atoms=atoms, formula=formula, data={"energy": energy})
-
-                """
-                if first_time:
-                    id = tmpdb.reserve(name=formula)
-                    if id is None:
-                        # somebody is writing to db
-                        continue
-                    else:
-                        # ready to write
-                        name = formula
-                        tmpdb.write(atoms, name=name, id=id, data={"energy": energy})
-                """
 
             energies[side] = E
 

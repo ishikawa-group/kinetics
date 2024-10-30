@@ -34,19 +34,27 @@ def set_vasp_calculator(atom_type="molecule", dfttype="gga", kpt=1, do_optimizat
 
     # common setting
     xc = "pbe"
-    encut = 500.0
+    encut = 400.0
     ediff  = 1.0e-4
     ediffg = -10.0e-2
     lorbit = 10
     algo = "Normal"
     nelmin = 5
     nelm = 30
-    npar = 4
+    npar = 10  # change according to the computational environment
     nsim = npar
     ispin = 2
     kgamma = True
     setups = {"Cr": "_pv", "Mn": "_pv", "Fe": "_pv"}
     lasph = True
+    lwave = False
+    lcharg = False
+
+    amin = 0.01
+    bmix = 3.0
+
+    # amix = 0.2;     amix_mag = 0.8
+    # bmix = 1.0e-4;  bmix_mag = 1.0e-4
 
     # DFT + U
     if dfttype == "plus_u":
@@ -63,6 +71,7 @@ def set_vasp_calculator(atom_type="molecule", dfttype="gga", kpt=1, do_optimizat
     # meta-gga
     if dfttype == "meta-gga":
         metagga = "r2scan"
+        xc = None
     else:
         metagga = None
 
@@ -70,25 +79,22 @@ def set_vasp_calculator(atom_type="molecule", dfttype="gga", kpt=1, do_optimizat
     if do_optimization:
         ibrion = 2
         potim = 0.1
-        nsw = 1
+        nsw = 20
     else:
         ibrion = 0
         potim = 0.0
         nsw = 0
 
-    calc = Vasp(prec="Normal", xc=xc, metagga=metagga, encut=encut, kpts=kpts, ismear=ismear, ediff=ediff, ediffg=ediffg,
+    calc = Vasp(prec="Normal", xc=xc, metagga=metagga, pp="pbe", encut=encut, kpts=kpts, ismear=ismear, ediff=ediff, ediffg=ediffg,
                 ibrion=ibrion, potim=potim, nsw=nsw, algo=algo, ldipol=ldipol, idipol=idipol, setups=setups, lasph=True,
                 ispin=ispin, npar=npar, nsim=nsim, nelmin=nelmin, nelm=nelm, lreal=lreal, lorbit=lorbit, kgamma=kgamma,
                 ldau=ldau, ldautype=ldautype, ldau_luj=ldau_luj,
+                lwave=lwave, lcharg=lcharg,
+                amin=0.01, bmix=bmix,
+                # amix = amix, amix_mag = amix_mag, bmix = bmix, bmix_mag = bmix_mag,
                 )
 
     return calc
-
-
-def set_calc_directory(atoms=None, dirname=None, formula=None):
-    directory = "work_" + dirname + "/" + formula
-    atoms.calc.directory = directory
-    return None
 
 
 def set_lmaxmix(atoms=None):
@@ -96,6 +102,8 @@ def set_lmaxmix(atoms=None):
     symbols = atoms.get_chemical_symbols()
     d_elements = ["Mo", "Fe", "Cr"]
     f_elements = ["La", "Ce", "Pr", "Nd"]
+
+    atoms.calc.set(lmaxmix=2)  # default
 
     if len(set(symbols) & set(d_elements)) != 0:
         # has some d_elements
