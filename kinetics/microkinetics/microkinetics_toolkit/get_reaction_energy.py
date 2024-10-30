@@ -1,4 +1,4 @@
-def register(db=None, atoms=None, formula=None, data=None):
+def register(db=None, atoms=None, data=None):
     formula = atoms.get_chemical_formula()
     db.write(atoms, name=formula, data=data)
     return None
@@ -18,7 +18,16 @@ def get_past_atoms(db=None, atoms=None):
 
 
 def get_past_energy(db=None, atoms=None):
-    return atoms_, first
+    formula = atoms.get_chemical_formula()
+    try:
+        id_ = db.get(name=formula).id
+        first = False
+        energy = db.get(id=id_).data.energy
+    except:
+        first = True
+        energy = None
+    finally:
+        return energy, first
 
 
 def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt", verbose=False, dirname=None):
@@ -137,14 +146,13 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
                         adsorbate.rotate(*rotation[tmp])
 
                     height = 1.8
-                    # offset = (0.0, 0.25)  # for middle cell
-                    offset = (0.0, 0.50)  # for smallest cell
+                    offset = (0.0, 0.25)  # for middle cell
+                    # offset = (0.0, 0.50)  # for smallest cell
                     position = adsorbate.positions[0][:2]
 
                     # check whether the bare surface is calcualted before
                     surf_, first = get_past_atoms(db=tmpdb, atoms=surf_)
                     if first:
-                        print(f"First time to calculate bare surface.", flush=True)
                         formula = surf_.get_chemical_formula()
                         directory = "work_" + dirname + "/" + formula
                         surf_.calc = calc_surf
@@ -152,8 +160,6 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
                         set_lmaxmix(atoms=surf_)
                         surf_.get_potential_energy()
                         register(db=tmpdb, atoms=surf_)
-                    else:
-                        print(f"Bare surface found in database.", flush=True)
 
                     atoms = surf_.copy()
                     add_adsorbate(atoms, adsorbate, offset=offset, position=position, height=height)
@@ -162,12 +168,16 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
                     print("some error")
                     quit()
 
-                # Setting atoms done. Perform energy calculation.
+                # setting atoms done
+                energy, first = get_past_energy(db=tmpdb, atoms=atoms)
                 formula = atoms.get_chemical_formula()
-                directory = "work_" + dirname + "/" + formula
-                atoms.calc.directory = directory
-                set_lmaxmix(atoms=atoms)
-                energy = atoms.get_potential_energy()
+                if first:
+                    print(f"First time to calculate {formula}", flush=True)
+                    directory = "work_" + dirname + "/" + formula
+                    atoms.calc.directory = directory
+                    set_lmaxmix(atoms=atoms)
+                    energy = atoms.get_potential_energy()
+                    register(db=tmpdb, atoms=atoms, data={"energy": energy})
 
                 E += coefs[imol]*energy
 

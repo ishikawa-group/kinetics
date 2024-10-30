@@ -18,8 +18,8 @@ if __name__ == "__main__":
 
     cif_file = "LaMnO3.cif"
 
-    repeat = [1, 1, 1]
-    # repeat = [2, 2, 1]
+    # repeat = [1, 1, 1]
+    repeat = [2, 2, 1]
 
     surface = make_surface_from_cif(cif_file, indices=[0, 0, 1], repeat=repeat, vacuum=7.0)
 
