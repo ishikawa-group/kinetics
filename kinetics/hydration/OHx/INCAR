@@ -1,0 +1,5 @@
+INCAR created by Atomic Simulation Environment
+ GGA = PE
+ PREC = normal
+ IBRION = -1
+ NSW = 0

@@ -11,6 +11,7 @@ def get_hydration_energy(cif_file):
     from ase.io import read
     from ase import Atom
     from ase.io.vasp import read_vasp_out
+    from ase.calculators.vasp import Vasp
 
     # --- Function to set up directories
     def setup_directory(structure_name):
@@ -35,8 +36,7 @@ def get_hydration_energy(cif_file):
     # --- Read the CIF file
     atoms = read(cif_file)
 
-    # --- make the hydrated structure (hydrated)
-    # --- Copy the original structure
+    # --- make the hydrated structure
     atoms_with_Vox = atoms.copy()
 
     # --- Step1: Remove an oxygen atom to simulate the vacancy(Vox)
@@ -49,7 +49,7 @@ def get_hydration_energy(cif_file):
 
     # --- Step2: Add back the oxygen atom and a hydrogen atom to simulate proton defect(OHx)
     # --- Copy the structure with the vacancy
-    atoms_with_OHx=atoms_with_Vox.copy()
+    atoms_with_OHx = atoms_with_Vox.copy()
     # --- Add an oxygen atom
     atoms_with_OHx.append(Atom("O", position=oxygen_position))
     # --- Add a hydrogen atom
@@ -64,6 +64,18 @@ def get_hydration_energy(cif_file):
     atoms.write("pristine/POSCAR")
     atoms_with_Vox.write("Vox/POSCAR")
     atoms_with_OHx.write("OHx/POSCAR")
+
+    # --- Do VASP calculation
+    calculate_here = True
+
+    if calculate_here:
+        atoms.calc = Vasp(prec="normal", xc="pbe", directory="pristine", ibrion=-1, nsw=0)
+        atoms_with_Vox.calc = Vasp(prec="normal", xc="pbe", directory="Vox", ibrion=-1, nsw=0)
+        atoms_with_OHx.calc = Vasp(prec="normal", xc="pbe", directory="OHx", ibrion=-1, nsw=0)
+
+        atoms.get_potential_energy()
+        atoms_with_Vox.get_potential_energy()
+        atoms_with_OHx.get_potential_energy()
     
     # --- Ensure the OUTCAR files exist
     for dir_name in ['pristine', 'Vox', 'OHx']:
