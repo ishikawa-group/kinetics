@@ -33,8 +33,8 @@ if __name__ == "__main__":
 
     energy_shift = [0]*4
 
-    reaction_file = "orr_alkaline.txt"
-    # reaction_file = "orr_alkaline2.txt"
+    # reaction_file = "orr_alkaline.txt"  # not really good on first step
+    reaction_file = "orr_alkaline2.txt"  # currently best
     # reaction_file = "orr_alkaline3.txt"; energy_shift = [-4.92, 0, 0, 0]
 
     deltaEs = get_reaction_energy(reaction_file=reaction_file, surface=surface, calculator="vasp", verbose=True, dirname=unique_id)
