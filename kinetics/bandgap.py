@@ -1,7 +1,8 @@
 import os
-from ase.io import read, write
 from ase.calculators.vasp import Vasp
 from ase.dft.bandgap import bandgap
+from ase.io import read, write
+
 
 def get_bandgap(cif_file=None, verbose=False):
     """
@@ -10,7 +11,6 @@ def get_bandgap(cif_file=None, verbose=False):
     Args:
         cif_file (str): Path to the CIF file of the material.
         verbose (bool): Verbose printing or not.
-
     Returns:
         badngap (float): Calculated band gap value.
     """
@@ -81,8 +81,9 @@ def get_bandgap(cif_file=None, verbose=False):
         gap, p1, p2 = bandgap(structure.calc, direct=True)
     except Exception as e:
         raise RuntimeError(f"Failed to calculate band gap: {e}")
-    
+
     return gap
+
 
 if __name__ == "__main__":
     get_bandgap("../BaZrO3.cif")
