@@ -4,15 +4,15 @@ from ase.dft.bandgap import bandgap
 from ase.io import read, write
 
 
-def get_bandgap(cif_file=None, verbose=False):
+def get_bandgap(atoms=None, verbose=False):
     """
     Calculate band gap.
 
     Args:
-        cif_file (str): Path to the CIF file of the material.
-        verbose (bool): Verbose printing or not.
+        Atoms: ASE Atoms object.
+        verbose: Verbose printing or not.
     Returns:
-        badngap (float): Calculated band gap value.
+        badngap: Calculated band gap value.
     """
 
     # Check VASP command environment variable is set
@@ -36,54 +36,37 @@ def get_bandgap(cif_file=None, verbose=False):
     if verbose:
         print("VASP_PP_PATH is set to:", os.getenv("VASP_PP_PATH"))
 
-    # Verify CIF file exists
-    if cif_file is None or not os.path.exists(cif_file):
-        raise FileNotFoundError(f"The specified CIF file '{cif_file}' does not exist.")
-
-    # Read the structure from the CIF file
-    try:
-        structure = read(cif_file)
-    except Exception as e:
-        raise RuntimeError(f"Failed to read structure from CIF file '{cif_file}': {e}")
-
 
     # Set up VASP calculator with standard settings
-
     tmpdir = "tmpdir_bandgap"
 
-    try:
-        structure.calc = Vasp(prec="normal",
-                              xc="pbe",
-                              encut=500,
-                              kpts=[8, 8, 8],
-                              ismear=0,
-                              sigma=0.05,
-                              setups='recommended',
-                              lwave=True,
-                              lcharg=True,
-                              nelm=150,
-                              algo="fast",
-                              ediff=1e-8,
-                              npar=4,
-                              directory=tmpdir,
-                              )
-    except Exception as e:
-        raise RuntimeError(f"Failed to set up VASP calculator: {e}")
+    atoms.calc = Vasp(prec="normal",
+                         xc="pbe",
+                         encut=520,
+                         kpts=[4, 4, 4],
+                         ismear=0,
+                         sigma=0.05,
+                         lwave=False,
+                         lcharg=False,
+                         nelm=50,
+                         nelmin=5,
+                         algo="Normal",
+                         ediff=1e-6,
+                         npar=4,
+                         directory=tmpdir,
+                         ispin=2,
+                         lorbit=10,
+                         isif=8,
+                         ibrion=2,
+                         nsw=10,
+                         lreal=False,
+                         )
 
     # Calculate total energy (needed for band structure calculation)
-    try:
-        energy = structure.get_potential_energy()
-    except Exception as e:
-        raise RuntimeError(f"Failed to calculate total energy: {e}")
+    energy = atoms.get_potential_energy()
 
     # Calculate band gap
-    try:
-        gap, p1, p2 = bandgap(structure.calc, direct=True)
-    except Exception as e:
-        raise RuntimeError(f"Failed to calculate band gap: {e}")
+    gap, p1, p2 = bandgap(atoms.calc, direct=False)
 
     return gap
 
-
-if __name__ == "__main__":
-    get_bandgap("../BaZrO3.cif")
