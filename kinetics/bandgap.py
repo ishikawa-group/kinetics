@@ -40,27 +40,16 @@ def get_bandgap(atoms=None, verbose=False):
     # Set up VASP calculator with standard settings
     tmpdir = "tmpdir_bandgap"
 
-    atoms.calc = Vasp(prec="normal",
-                         xc="pbe",
-                         encut=520,
-                         kpts=[4, 4, 4],
-                         ismear=0,
-                         sigma=0.05,
-                         lwave=False,
-                         lcharg=False,
-                         nelm=50,
-                         nelmin=5,
-                         algo="Normal",
-                         ediff=1e-6,
-                         npar=4,
-                         directory=tmpdir,
-                         ispin=2,
-                         lorbit=10,
-                         isif=8,
-                         ibrion=2,
-                         nsw=10,
-                         lreal=False,
-                         )
+    atoms.calc = Vasp(prec="normal", xc="pbe", ispin=2, lorbit=10,
+                      ibrion=2, nsw=10, isif=8,
+                      encut=520, ediff=1e-6, algo="Normal", nelm=50, nelmin=5,
+                      kpts=[4, 4, 4], kgamma=True,
+                      ismear=0, sigma=0.05,
+                      lwave=False, lcharg=False,
+                      npar=4, nsim=npar,
+                      directory=tmpdir,
+                      lreal=False,
+                      )
 
     # Calculate total energy (needed for band structure calculation)
     energy = atoms.get_potential_energy()
