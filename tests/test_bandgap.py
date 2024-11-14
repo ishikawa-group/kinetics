@@ -10,4 +10,3 @@ atoms *= [2, 2, 2]
 
 bandgap = get_bandgap(atoms=atoms)
 print(f"bandgap = {bandgap:5.3f} eV")
-

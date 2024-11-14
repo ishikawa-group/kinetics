@@ -9,7 +9,7 @@ def get_bandgap(atoms=None, verbose=False):
     Calculate band gap.
 
     Args:
-        Atoms: ASE Atoms object.
+        atoms: ASE Atoms object.
         verbose: Verbose printing or not.
     Returns:
         badngap: Calculated band gap value.
@@ -36,10 +36,8 @@ def get_bandgap(atoms=None, verbose=False):
     if verbose:
         print("VASP_PP_PATH is set to:", os.getenv("VASP_PP_PATH"))
 
-
     # Set up VASP calculator with standard settings
     tmpdir = "tmpdir_bandgap"
-
     atoms.calc = Vasp(prec="normal", xc="pbe", ispin=2, lorbit=10,
                       ibrion=2, nsw=10, isif=8,
                       encut=520, ediff=1e-6, algo="Normal", nelm=50, nelmin=5,
@@ -52,10 +50,9 @@ def get_bandgap(atoms=None, verbose=False):
                       )
 
     # Calculate total energy (needed for band structure calculation)
-    energy = atoms.get_potential_energy()
+    atoms.get_potential_energy()
 
     # Calculate band gap
     gap, p1, p2 = bandgap(atoms.calc, direct=False)
 
     return gap
-
