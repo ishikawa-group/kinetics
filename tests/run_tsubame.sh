@@ -1,10 +1,10 @@
 #!/bin/sh
 #$ -cwd
-#$ -l cpu_16=1
-#$ -l h_rt=12:00:00
+#$ -l cpu_40=1
+#$ -l h_rt=10:00:00
 #$ -N flatmpi
 
-NCORE=16
+NCORE=40
 
 source /etc/profile.d/modules.sh
 

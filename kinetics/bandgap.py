@@ -44,7 +44,7 @@ def get_bandgap(atoms=None, verbose=False):
                       kpts=[4, 4, 4], kgamma=True,
                       ismear=0, sigma=0.05,
                       lwave=False, lcharg=False,
-                      npar=4, nsim=npar,
+                      npar=4, nsim=4,
                       directory=tmpdir,
                       lreal=False,
                       )

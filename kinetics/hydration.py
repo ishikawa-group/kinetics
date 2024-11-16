@@ -8,7 +8,7 @@ def set_vasp_calculator(atoms=None, directory=None):
     from ase.calculators.vasp import Vasp
 
     calc = Vasp(prec="normal", xc="pbe", ispin=2, lorbit=10,
-                encut=520, ediff=1e-6, algo="Normal", nelm=50, nelmin=5,
+                encut=520, ediff=1e-6, algo="Normal", nelm=40, nelmin=5,
                 ibrion=2, nsw=50, isif=2, potim=0.1, ediffg=-0.05,
                 ismear=0, sigma=0.05,
                 kpts=[4, 4, 4], kgamma=True,
