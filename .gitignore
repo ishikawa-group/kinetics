@@ -1,2 +1,6 @@
 **/__pycache__/**
 *.egg-info/
+
+tmpdir*
+*.e[0-9]*
+*.o[0-9]*
