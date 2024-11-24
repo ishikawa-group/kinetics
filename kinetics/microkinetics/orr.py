@@ -18,24 +18,25 @@ if __name__ == "__main__":
 
     cif_file = "LaMnO3.cif"
 
-    # repeat = [1, 1, 1]
-    repeat = [2, 2, 1]
+    repeat = [1, 1, 2]
+    # repeat = [2, 2, 2]
 
     surface = make_surface_from_cif(cif_file, indices=[0, 0, 1], repeat=repeat, vacuum=7.0)
 
+    surface = remove_layers(surface, element="La", n_layers=4)
+    surface = remove_layers(surface, element="Mn", n_layers=3)
+    surface = remove_layers(surface, element="O", n_layers=11)
+
     # make random replacement
     surface = replace_element(surface, from_element="Mn", to_element="Cr", percent=100)
-
-    surface = remove_layers(surface, element="La", n_layers=1)
-    surface = remove_layers(surface, element="O", n_layers=2)
 
     surface = fix_lower_surface(surface)
 
     energy_shift = [0]*4
 
     # reaction_file = "orr_alkaline.txt"  # not really good on first step
-    reaction_file = "orr_alkaline2.txt"  # currently best
-    # reaction_file = "orr_alkaline3.txt"; energy_shift = [-4.92, 0, 0, 0]
+    reaction_file = "orr_alkaline2.txt"; energy_shift = [-0.32+0.75, -0.54+0.32, -0.47+0.54, -0.75+0.47]
+    # reaction_file = "orr_alkaline3.txt"; energy_shift = [-0.32+0.75-4.92, -0.54+0.32, -0.47+0.54, -0.75+0.47]
 
     deltaEs = get_reaction_energy(reaction_file=reaction_file, surface=surface, calculator="vasp", verbose=True, dirname=unique_id)
     eta = get_overpotential_oer_orr(reaction_file=reaction_file, deltaEs=deltaEs, reaction_type="orr", verbose=True, energy_shift=energy_shift)

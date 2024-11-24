@@ -1,10 +1,9 @@
-def set_vasp_calculator(atom_type="molecule", dfttype="gga", kpt=1, do_optimization=False):
+def set_vasp_calculator(atom_type="molecule", dfttype="gga", do_optimization=False):
     """
     Set up a calculator using VASP.
 
     Args:
         atom_type: "molecule", "surface" or "solid".
-        kpt: k-points in x and y directions.
         do_optimization: True or False.
     """
     import json
@@ -17,12 +16,14 @@ def set_vasp_calculator(atom_type="molecule", dfttype="gga", kpt=1, do_optimizat
         ldipol = False
         idipol = None
     elif atom_type == "surface":
+        kpt  = 6
         kpts = [kpt, kpt, 1]
         ismear = 0
-        lreal = True
+        lreal = True  # False will take very long time
         ldipol = True
         idipol = 3
     elif atom_type == "solid":
+        kpt  = 3
         kpts = [kpt, kpt, kpt]
         ismear = 0
         lreal = False
@@ -34,13 +35,14 @@ def set_vasp_calculator(atom_type="molecule", dfttype="gga", kpt=1, do_optimizat
 
     # common setting
     xc = "pbe"
-    encut = 400.0
-    ediff  = 1.0e-4
-    ediffg = -10.0e-2
+    encut = 500.0
+    ediff  = 1.0e-5
+    ediffg = -30.0e-2
     lorbit = 10
     algo = "Normal"
+    # algo = "Fast"
     nelmin = 5
-    nelm = 30
+    nelm = 40
     npar = 10  # change according to the computational environment
     nsim = npar
     ispin = 2
@@ -70,22 +72,19 @@ def set_vasp_calculator(atom_type="molecule", dfttype="gga", kpt=1, do_optimizat
 
     # meta-gga
     if dfttype == "meta-gga":
-        metagga = "r2scan"
-        xc = None
-    else:
-        metagga = None
+        xc = "r2scan"
 
     # geometry optimization related
     if do_optimization:
         ibrion = 2
-        potim = 0.15
-        nsw = 30
+        potim = 0.17
+        nsw = 100
     else:
         ibrion = 0
         potim = 0.0
         nsw = 0
 
-    calc = Vasp(prec="Normal", xc=xc, metagga=metagga, pp="pbe", encut=encut, kpts=kpts, ismear=ismear, ediff=ediff, ediffg=ediffg,
+    calc = Vasp(prec="Normal", xc=xc, pp="pbe", encut=encut, kpts=kpts, ismear=ismear, ediff=ediff, ediffg=ediffg,
                 ibrion=ibrion, potim=potim, nsw=nsw, algo=algo, ldipol=ldipol, idipol=idipol, setups=setups, lasph=True,
                 ispin=ispin, npar=npar, nsim=nsim, nelmin=nelmin, nelm=nelm, lreal=lreal, lorbit=lorbit, kgamma=kgamma,
                 ldau=ldau, ldautype=ldautype, ldau_luj=ldau_luj,
