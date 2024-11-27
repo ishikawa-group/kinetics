@@ -24,12 +24,12 @@ def get_overpotential_for_cif(cif_file=None):
 
     surface = make_surface_from_cif(cif_file, indices=[0, 0, 1], repeat=repeat, vacuum=7.0)
 
-    #surface = remove_layers(surface, element="La", n_layers=4)
-    #surface = remove_layers(surface, element="Mn", n_layers=3)
-    #surface = remove_layers(surface, element="O", n_layers=11)
+    # surface = remove_layers(surface, element="La", n_layers=4)
+    # surface = remove_layers(surface, element="Mn", n_layers=3)
+    # surface = remove_layers(surface, element="O", n_layers=11)
 
-    # make random replacement
-    #surface = replace_element(surface, from_element="Mn", to_element="Cr", percent=100)
+    # --- make random replacement
+    # surface = replace_element(surface, from_element="Mn", to_element="Cr", percent=100)
 
     surface = fix_lower_surface(surface)
 
@@ -39,14 +39,25 @@ def get_overpotential_for_cif(cif_file=None):
     reaction_file = "orr_alkaline2.txt"; energy_shift = [-0.32+0.75, -0.54+0.32, -0.47+0.54, -0.75+0.47]
     # reaction_file = "orr_alkaline3.txt"; energy_shift = [-0.32+0.75-4.92, -0.54+0.32, -0.47+0.54, -0.75+0.47]
 
-    deltaEs = get_reaction_energy(reaction_file=reaction_file, surface=surface, calculator="vasp", verbose=False, dirname=unique_id)
-    eta = get_overpotential_oer_orr(reaction_file=reaction_file, deltaEs=deltaEs, reaction_type="orr", verbose=False, energy_shift=energy_shift)
+    deltaEs = get_reaction_energy(reaction_file=reaction_file, surface=surface, calculator="vasp",
+                                  verbose=False, dirname=unique_id)
+    eta = get_overpotential_oer_orr(reaction_file=reaction_file, deltaEs=deltaEs, reaction_type="orr",
+                                    verbose=False, energy_shift=energy_shift)
     eta = np.abs(eta)
 
     return eta
 
-if __name__ == "__main__":
-    cif_file = "mp-1183920_CsPaO3.cif"
-    eta = get_overpotential_for_cif(cif_file=cif_file)
-    print(f"eta = {eta:5.3f} eV")
 
+if __name__ == "__main__":
+    import os
+    directory = './ABO3_cif/'
+
+    # Loop over files in the directory
+    for filename in os.listdir(directory):
+        file_path = os.path.join(directory, filename)
+        if os.path.isfile(file_path):
+            print(f"Found file: {file_path}")
+        cif_file = file_path
+        eta = get_overpotential_for_cif(cif_file=cif_file)
+
+        print(f"eta = {eta:5.3f} eV")
