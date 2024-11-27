@@ -76,13 +76,13 @@ def get_overpotential_oer_orr(reaction_file, deltaEs, T=298.15, reaction_type="o
 
     np.set_printoptions(precision=3)
 
-    print(f"deltaGs = {deltaGs}")
-
     # make deltaG relative
     deltaGs_rel = deltaGs - deltaGs[0]
     deltaGs_rel = np.append(deltaGs_rel, 0)
 
-    print(f"deltaGs_rel = {deltaGs_rel}")
+    if verbose:
+        print(f"deltaGs = {deltaGs}")
+        print(f"deltaGs_rel = {deltaGs_rel}")
 
     # plot
     fig_name = "test.png"

@@ -174,7 +174,9 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
                 energy, first = get_past_energy(db=tmpdb, atoms=atoms)
                 formula = atoms.get_chemical_formula()
                 if first:
-                    print(f"First time to calculate {formula}", flush=True)
+                    if verbose:
+                        print(f"First time to calculate {formula}", flush=True)
+
                     directory = "work_" + dirname + "/" + formula
                     atoms.calc.directory = directory
                     set_lmaxmix(atoms=atoms)

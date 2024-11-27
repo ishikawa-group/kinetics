@@ -16,7 +16,7 @@ def set_vasp_calculator(atom_type="molecule", dfttype="gga", do_optimization=Fal
         ldipol = False
         idipol = None
     elif atom_type == "surface":
-        kpt  = 6
+        kpt  = 1
         kpts = [kpt, kpt, 1]
         ismear = 0
         lreal = True  # False will take very long time
@@ -37,7 +37,7 @@ def set_vasp_calculator(atom_type="molecule", dfttype="gga", do_optimization=Fal
     xc = "pbe"
     encut = 500.0
     ediff  = 1.0e-5
-    ediffg = -30.0e-2
+    ediffg = -1000.0e-2
     lorbit = 10
     algo = "Normal"
     # algo = "Fast"
@@ -47,7 +47,7 @@ def set_vasp_calculator(atom_type="molecule", dfttype="gga", do_optimization=Fal
     nsim = npar
     ispin = 2
     kgamma = True
-    setups = {"Cr": "_pv", "Mn": "_pv", "Fe": "_pv"}
+    setups = {"Cr": "_pv", "Mn": "_pv", "Fe": "_pv", "Cs": "_sv"}
     lasph = True
     lwave = False
     lcharg = False
