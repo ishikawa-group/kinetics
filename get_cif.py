@@ -5,11 +5,11 @@ MY_API_KEY = os.environ["MAPI"]
 
 # Get cif files of ABO3 systems
 name = "**O3"
-band_gap_min = 1.0  # Only for stable insulators with band_gap > 2
+band_gap_min = 2.0  # Only for stable insulators with band_gap of this value
 band_gap_max = None
 sg_symb = "Pm-3m"   # spacegroup = Pm-3m
-_is_stable = True
-_is_metal = False
+_is_stable = None
+_is_metal  = False
 
 # define physical properties/infos you want to obtain
 properties = ["formula_pretty", "material_id", "structure", "symmetry", "is_metal", "band_gap"]
@@ -24,9 +24,7 @@ if not os.path.exists(path_output_dir):
     os.makedirs(path_output_dir)
 
 for mat in results:
-    print(mat.material_id, mat.formula_pretty)
-    print(mat.symmetry.symbol)
-    print(mat.is_metal, mat.band_gap)
+    print(f"formula = {mat.formula_pretty:>8.6s}, is_metal = {str(mat.is_metal):6.5s}, bandgap = {mat.band_gap:5.3f}")
 
     ofile = path_output_dir+mat.material_id+"_"+mat.formula_pretty+".cif"
     mat.structure.to(filename=ofile)
