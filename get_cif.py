@@ -5,7 +5,7 @@ MY_API_KEY = os.environ["MAPI"]
 
 # Get cif files of ABO3 systems
 name = "**O3"
-band_gap_min = 2.0  # Only for stable insulators with band_gap > 2
+band_gap_min = 1.0  # Only for stable insulators with band_gap > 2
 band_gap_max = None
 sg_symb = "Pm-3m"   # spacegroup = Pm-3m
 _is_stable = True

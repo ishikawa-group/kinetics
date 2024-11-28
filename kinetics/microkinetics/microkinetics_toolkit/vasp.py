@@ -35,9 +35,9 @@ def set_vasp_calculator(atom_type="molecule", dfttype="gga", do_optimization=Fal
 
     # common setting
     xc = "pbe"
-    encut = 500.0
-    ediff  = 1.0e-5
-    ediffg = -1000.0e-2
+    encut = 400.0
+    ediff  = 1.0e-4
+    ediffg = -500.0e-2
     lorbit = 10
     algo = "Normal"
     # algo = "Fast"
@@ -47,7 +47,8 @@ def set_vasp_calculator(atom_type="molecule", dfttype="gga", do_optimization=Fal
     nsim = npar
     ispin = 2
     kgamma = True
-    setups = {"Cr": "_pv", "Mn": "_pv", "Fe": "_pv", "Cs": "_sv"}
+    # setups = {"K": "_pv", "Cr": "_pv", "Mn": "_pv", "Fe": "_pv", "Cs": "_sv"}
+    setups = {"K": "_sv", "Ba": "_sv", "Cr": "_sv", "Mn": "_sv", "Fe": "_sv", "Cs": "_sv", "Rb": "_sv"}
     lasph = True
     lwave = False
     lcharg = False

@@ -55,9 +55,11 @@ if __name__ == "__main__":
     # Loop over files in the directory
     for filename in os.listdir(directory):
         file_path = os.path.join(directory, filename)
-        if os.path.isfile(file_path):
-            print(f"Found file: {file_path}")
+
+        if not os.path.isfile(file_path):
+            print(f"Could not found file: {file_path}")
+
         cif_file = file_path
         eta = get_overpotential_for_cif(cif_file=cif_file)
 
-        print(f"eta = {eta:5.3f} eV")
+        print(f"file = {file_path}, eta = {eta:5.3f} eV")
