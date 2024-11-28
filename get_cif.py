@@ -5,7 +5,7 @@ MY_API_KEY = os.environ["MAPI"]
 
 # Get cif files of ABO3 systems
 name = "**O3"
-band_gap_min = 2.0  # Only for stable insulators with band_gap of this value
+band_gap_min = 3.0  # Only for stable insulators with band_gap of this value
 band_gap_max = None
 sg_symb = "Pm-3m"   # spacegroup = Pm-3m
 _is_stable = None
@@ -19,12 +19,12 @@ with MPRester(MY_API_KEY) as mpr:
                                            fields=properties)
 
 # Output
-path_output_dir = "./ABO3_cif/"
-if not os.path.exists(path_output_dir):
-    os.makedirs(path_output_dir)
+output_dir = "ABO3_cif"
+if not os.path.exists(output_dir):
+    os.makedirs(output_dir)
 
 for mat in results:
     print(f"formula = {mat.formula_pretty:>8.6s}, is_metal = {str(mat.is_metal):6.5s}, bandgap = {mat.band_gap:5.3f}")
-
-    ofile = path_output_dir+mat.material_id+"_"+mat.formula_pretty+".cif"
-    mat.structure.to(filename=ofile)
+    filename = mat.material_id + "_"+ mat.formula_pretty + ".cif"
+    filename = os.path.join(output_dir, filename)
+    mat.structure.to(filename=filename)
