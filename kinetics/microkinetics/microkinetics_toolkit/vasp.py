@@ -16,14 +16,14 @@ def set_vasp_calculator(atom_type="molecule", dfttype="gga", do_optimization=Fal
         ldipol = False
         idipol = None
     elif atom_type == "surface":
-        kpt  = 1
+        kpt  = 2
         kpts = [kpt, kpt, 1]
         ismear = 0
         lreal = True  # False will take very long time
         ldipol = True
         idipol = 3
     elif atom_type == "solid":
-        kpt  = 3
+        kpt  = 2
         kpts = [kpt, kpt, kpt]
         ismear = 0
         lreal = False
@@ -37,7 +37,7 @@ def set_vasp_calculator(atom_type="molecule", dfttype="gga", do_optimization=Fal
     xc = "pbe"
     encut = 400.0
     ediff  = 1.0e-4
-    ediffg = -500.0e-2
+    ediffg = -50.0e-2
     lorbit = 10
     algo = "Normal"
     # algo = "Fast"
@@ -48,17 +48,16 @@ def set_vasp_calculator(atom_type="molecule", dfttype="gga", do_optimization=Fal
     ispin = 2
     kgamma = True
     # setups = {"K": "_pv", "Cr": "_pv", "Mn": "_pv", "Fe": "_pv", "Cs": "_sv"}
-    setups = {"K": "_sv", "Ba": "_sv", "Cr": "_sv", "Mn": "_sv", "Fe": "_sv", "Cs": "_sv", "Rb": "_sv"}
-    lasph = True
+    setups = {"Ca": "_sv", "K": "_sv", "Ba": "_sv", "Cr": "_sv", "Mn": "_sv", 
+              "Fe": "_sv", "Cs": "_sv", "Rb": "_sv", "Sr": "_sv", "Er": "_2",
+              "Zr": "_sv", "Dy": "_3", "Sm": "_3"}
+    lasph = False
     lwave = False
     lcharg = False
 
-    amin = 0.01
-    bmix = 3.0
-
-    # amix = 0.2;     amix_mag = 0.8
-    # bmix = 1.0e-4;  bmix_mag = 1.0e-4
-
+    amix = 0.4; amix_mag = 1.6; bmix = 1.0;     bmix_mag = 1.0     # default
+    # amix = 0.2; amix_mag = 0.8; bmix = 1.0e-4;  bmix_mag = 1.0e-4  # linear mixing
+    
     # DFT + U
     if dfttype == "plus_u":
         ldau = True
@@ -78,7 +77,7 @@ def set_vasp_calculator(atom_type="molecule", dfttype="gga", do_optimization=Fal
     # geometry optimization related
     if do_optimization:
         ibrion = 2
-        potim = 0.17
+        potim = 0.2
         nsw = 100
     else:
         ibrion = 0
@@ -90,8 +89,7 @@ def set_vasp_calculator(atom_type="molecule", dfttype="gga", do_optimization=Fal
                 ispin=ispin, npar=npar, nsim=nsim, nelmin=nelmin, nelm=nelm, lreal=lreal, lorbit=lorbit, kgamma=kgamma,
                 ldau=ldau, ldautype=ldautype, ldau_luj=ldau_luj,
                 lwave=lwave, lcharg=lcharg,
-                amin=0.01, bmix=bmix,
-                # amix = amix, amix_mag = amix_mag, bmix = bmix, bmix_mag = bmix_mag,
+                amix=amix, amix_mag=amix_mag, bmix=bmix, bmix_mag=bmix_mag,
                 )
 
     return calc
@@ -100,8 +98,9 @@ def set_vasp_calculator(atom_type="molecule", dfttype="gga", do_optimization=Fal
 def set_lmaxmix(atoms=None):
     # lmaxmix setting
     symbols = atoms.get_chemical_symbols()
-    d_elements = ["Mo", "Fe", "Cr"]
-    f_elements = ["La", "Ce", "Pr", "Nd"]
+    d_elements = ["Sc", "Mo", "Fe", "Cr", "Hf", "Zr"]
+    f_elements = ["La", "Ce", "Pr", "Nd", "Pm", "Sm", "Eu", "Gd", "Tb", "Dy", "Ho", "Er", "Tm", "Yb", "Lu",
+                  "Ac", "Th", "Pa", "U",  "Np", "Pu"]
 
     atoms.calc.set(lmaxmix=2)  # default
 

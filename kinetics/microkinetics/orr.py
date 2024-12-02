@@ -22,7 +22,7 @@ def get_overpotential_for_cif(cif_file=None):
     repeat = [1, 1, 2]
     # repeat = [2, 2, 2]
 
-    surface = make_surface_from_cif(cif_file, indices=[0, 0, 1], repeat=repeat, vacuum=7.0)
+    surface = make_surface_from_cif(cif_file, indices=[0, 0, 1], repeat=repeat, vacuum=8.0)
 
     # surface = remove_layers(surface, element="La", n_layers=4)
     # surface = remove_layers(surface, element="Mn", n_layers=3)
@@ -50,16 +50,18 @@ def get_overpotential_for_cif(cif_file=None):
 
 if __name__ == "__main__":
     import os
-    directory = './ABO3_cif/'
+    import glob
+
+    directory = '/ABO3_cif/'
 
     # Loop over files in the directory
-    for filename in os.listdir(directory):
-        file_path = os.path.join(directory, filename)
+    cif_files = glob.glob(os.getcwd() + directory + "*.cif")
+    print(f"Found {len(cif_files)} files.", flush=True)
 
-        if not os.path.isfile(file_path):
-            print(f"Could not found file: {file_path}")
+    for cif_file in cif_files:
+        if not os.path.isfile(cif_file):
+            print(f"Could not found file: {cif_file}")
 
-        cif_file = file_path
         eta = get_overpotential_for_cif(cif_file=cif_file)
 
-        print(f"file = {file_path}, eta = {eta:5.3f} eV")
+        print(f"file = {cif_file:24.22s}, eta = {eta:5.3f} eV")

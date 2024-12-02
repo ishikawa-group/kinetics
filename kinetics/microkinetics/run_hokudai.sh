@@ -2,7 +2,7 @@
 #------ pjsub option --------#
 #PJM -L rscgrp=n22240a
 #PJM -L node=1
-#PJM -L elapse=48:00:00 
+#PJM -L elapse=24:00:00 
 #PJM -g n22240
 #PJM -j
 #------- Program execution -------#

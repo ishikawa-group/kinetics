@@ -68,9 +68,9 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
         calc_mol  = EMT()
         calc_surf = EMT()
     elif "vasp" in calculator:
-        dfttype = "gga"
+        # dfttype = "gga"
         # dfttype = "plus_u"
-        # dfttype = "meta-gga"
+        dfttype = "meta-gga"
         calc_mol  = set_vasp_calculator(atom_type="molecule", do_optimization=True, dfttype=dfttype)
         calc_surf = set_vasp_calculator(atom_type="surface", do_optimization=True, dfttype=dfttype)
     elif "ocp" in valculator:
