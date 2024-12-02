@@ -56,14 +56,16 @@ class MDAnalysisSystem:
         self.atoms_adaptor = AseAtomsAdaptor()
 
     def setup_environment(self):
-        """Setup logging and directories."""
+        """
+        Setup logging and directories.
+        """
         os.makedirs(self.working_dir, exist_ok=True)
         self.plot_dir = self.working_dir / 'plots'
         os.makedirs(self.plot_dir, exist_ok=True)
 
         # Setup logging
-        log_file = self.working_dir / \
-            f"md_analysis_{datetime.now():%Y%m%d_%H%M%S}.log"
+        log_file = self.working_dir / f"md_analysis_{datetime.now():%Y%m%d_%H%M%S}.log"
+
         logging.basicConfig(
             level=logging.INFO,
             format='%(asctime)s - %(levelname)s - %(message)s',
@@ -75,7 +77,9 @@ class MDAnalysisSystem:
         self.logger = logging.getLogger("main")
 
     def setup_plot_parameters(self):
-        """Setup matplotlib parameters."""
+        """
+        Setup matplotlib parameters.
+        """
         self.font_size = 26
         params = {
             'axes.labelsize': self.font_size,
@@ -91,7 +95,9 @@ class MDAnalysisSystem:
         plt.rcParams.update(params)
 
     def analyze_single_trajectory(self, temperature: int) -> dict:
-        """Analyze a single MD trajectory."""
+        """
+        Analyze a single MD trajectory.
+        """
         # Find trajectory file in temperature directory
         temp_dir = self.working_dir / f"T_{temperature}K"
         traj_file = temp_dir / f"MD_{temperature}K.traj"
@@ -109,19 +115,16 @@ class MDAnalysisSystem:
 
         if adjusted_window_size < 3:  # Need at least 3 frames for MSD
             self.logger.warning(f"Not enough frames ({n_frames}) for analysis")
-            return None
+            return {}
 
         # Get target atom indices and volume
-        atom_indices = [
-            i for i, x in enumerate(
-                traj_list[0].get_chemical_symbols()) if x == self.target_atom]
+        atom_indices = [i for i, x in enumerate(traj_list[0].get_chemical_symbols()) if x == self.target_atom]
 
         volume = np.mean([atoms.get_volume() for atoms in traj_list])
         volume_cm3 = volume * 1e-24  # Convert to cm³
 
         self.logger.info(f"Analyzing trajectory at {temperature}K")
-        self.logger.info(
-            f"Number of {self.target_atom} atoms: {len(atom_indices)}")
+        self.logger.info(f"Number of {self.target_atom} atoms: {len(atom_indices)}")
 
         try:
             # Extract positions for target atoms
@@ -131,16 +134,14 @@ class MDAnalysisSystem:
             self.logger.info(f"Position array shape: {positions.shape}")
 
             # Calculate number of complete windows
-            n_windows = max(
-                1, (n_frames - adjusted_window_size) // adjusted_shift + 1)
-
+            n_windows = max(1, (n_frames - adjusted_window_size) // adjusted_shift + 1)
             self.logger.info(f"Number of analysis windows: {n_windows}")
 
             msd_windows = []
             diffusion_coefficients = []
+
             # fixed time array(fs->ps)
-            time_array = np.arange(adjusted_window_size) * \
-                self.time_step / 1000
+            time_array = np.arange(adjusted_window_size) * self.time_step / 1000
 
             for i in range(n_windows):
                 start_idx = i * adjusted_shift
@@ -152,9 +153,7 @@ class MDAnalysisSystem:
                 # Calculate MSD for this window
                 window_positions = positions[start_idx:end_idx]
                 ref_positions = window_positions[0]
-                displacements = window_positions - \
-                    ref_positions[np.newaxis, :, :]
-
+                displacements = window_positions - ref_positions[np.newaxis, :, :]
                 squared_displacements = displacements**2
 
                 # Calculate MSD components
@@ -163,18 +162,13 @@ class MDAnalysisSystem:
                     'y': np.mean(squared_displacements[..., 1], axis=1),
                     'z': np.mean(squared_displacements[..., 2], axis=1)
                 }
-                msd_total = np.mean(
-                    np.sum(
-                        squared_displacements,
-                        axis=2),
-                    axis=1)
+                msd_total = np.mean(np.sum(squared_displacements, axis=2), axis=1)
 
                 # Store results
                 msd_windows.append(msd_total)
 
                 # Calculate diffusion coefficient
-                slope, intercept, r_value, p_value, std_err = stats.linregress(
-                    time_array, msd_total)
+                slope, intercept, r_value, p_value, std_err = stats.linregress(time_array, msd_total)
                 D = slope / 6  # Einstein relation in Å²/ps
                 D_cm2_s = D * 1e-4  # Convert to cm²/s (1e-16/1e-12 = 1e-4)
                 diffusion_coefficients.append(D_cm2_s)
@@ -193,9 +187,7 @@ class MDAnalysisSystem:
             std_D = np.std(diffusion_coefficients)
 
             # Calculate conductivity
-            conductivity = self.calculate_conductivity(
-                avg_D, temperature, volume_cm3, len(atom_indices)
-            )
+            conductivity = self.calculate_conductivity(avg_D, temperature, volume_cm3, len(atom_indices))
 
             # Plot average MSD
             self.plot_average_msd(
@@ -218,8 +210,7 @@ class MDAnalysisSystem:
 
             self.logger.info(f"Results for {temperature}K:")
             self.logger.info(f"MSD: {results['msd_A2ps']:.4f} Å²/ps")
-            self.logger.info(
-                f"Diffusion coefficient: {avg_D:.2e} ± {std_D:.2e} cm²/s")
+            self.logger.info(f"Diffusion coefficient: {avg_D:.2e} ± {std_D:.2e} cm²/s")
             self.logger.info(f"Conductivity: {conductivity:.2e} S/cm")
 
             return results
@@ -230,9 +221,10 @@ class MDAnalysisSystem:
             self.logger.error(f"Time array shape: {time_array.shape}")
             raise
 
-    def calculate_conductivity(self, D_cm2_s: float, temperature: float,
-                               volume_cm3: float, n_carriers: int) -> float:
-        """Calculate ionic conductivity using the Nernst-Einstein relation."""
+    def calculate_conductivity(self, D_cm2_s: float, temperature: float, volume_cm3: float, n_carriers: int) -> float:
+        """
+        Calculate ionic conductivity using the Nernst-Einstein relation.
+        """
         # Reference: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7761793/
         # σ = (N*e²*D)/(k_B*T)
         e = 1.602176634e-19  # Elementary charge (C)
@@ -242,9 +234,10 @@ class MDAnalysisSystem:
         sigma = (N * e * e * D_cm2_s) / (kb * temperature)  # S/cm
         return sigma
 
-    def analyze_temperature_range(
-            self, temperatures: list = None) -> pd.DataFrame:
-        """Analyze MD trajectories for a range of temperatures."""
+    def analyze_temperature_range(self, temperatures: list = None) -> pd.DataFrame:
+        """
+        Analyze MD trajectories for a range of temperatures.
+        """
         if temperatures is None:
             # Find all trajectory files
             traj_files = self.find_trajectory_files()
@@ -254,8 +247,7 @@ class MDAnalysisSystem:
                     temp = int(f.stem.split('_')[-1])
                     temperatures.append(temp)
                 except ValueError:
-                    self.logger.warning(
-                        f"Could not extract temperature from {f}")
+                    self.logger.warning(f"Could not extract temperature from {f}")
 
         if not temperatures:
             self.logger.error("No temperatures to analyze")
@@ -295,7 +287,9 @@ class MDAnalysisSystem:
         return df
 
     def plot_msd_components(self, time_array, msd_data, temperature, filename):
-        """Plot MSD components (x, y, z)."""
+        """
+        Plot MSD components (x, y, z).
+        """
         fig, ax = plt.subplots()
         for component in ['x', 'y', 'z']:
             ax.plot(time_array, msd_data[component], label=f'MSD_{component}')
@@ -320,17 +314,17 @@ class MDAnalysisSystem:
             D_cm2_s,
             temperature,
             filename):
-        """Plot average MSD with fit line."""
+        """
+        Plot average MSD with fit line.
+        """
         fig, ax = plt.subplots()
 
         # Plot MSD data
-        ax.plot(time_array, avg_msd,
-                label=f'MSD (D = {D_cm2_s:.2e} cm²/s)')
+        ax.plot(time_array, avg_msd, label=f'MSD (D = {D_cm2_s:.2e} cm²/s)')
 
         # Plot fit line
         slope, intercept = np.polyfit(time_array, avg_msd, 1)
-        ax.plot(time_array, slope * time_array + intercept,
-                '--', label='Linear fit')
+        ax.plot(time_array, slope * time_array + intercept, '--', label='Linear fit')
 
         ax.set_xlabel('Time (ps)')
         ax.set_ylabel('MSD (Å²)')
@@ -346,7 +340,9 @@ class MDAnalysisSystem:
         plt.close()
 
     def plot_arrhenius(self, df: pd.DataFrame, plot_type: str):
-        """Create Arrhenius plot for either diffusion or conductivity."""
+        """
+        Create Arrhenius plot for either diffusion or conductivity.
+        """
         fig, ax1 = plt.subplots()
 
         # Setup data based on plot type
@@ -360,8 +356,7 @@ class MDAnalysisSystem:
             title = f'{self.structure_name} Conductivity Arrhenius Plot'
 
         # Calculate activation energy
-        slope, intercept, r_value, p_value, std_err = stats.linregress(
-            df['T_inverse'], y_data)
+        slope, intercept, r_value, p_value, std_err = stats.linregress(df['T_inverse'], y_data)
         kb_ev = 8.617333262145e-5  # Boltzmann constant in eV/K
         Ea = -slope * np.log(10) * kb_ev * 1000  # Convert to eV
 
@@ -383,8 +378,7 @@ class MDAnalysisSystem:
 
         # Add activation energy text
         text = f'Ea = {Ea:.2f} eV\nR² = {r_value**2:.3f}'
-        ax1.text(0.05, 0.95, text, transform=ax1.transAxes,
-                 bbox=dict(facecolor='white', alpha=0.8))
+        ax1.text(0.05, 0.95, text, transform=ax1.transAxes, bbox=dict(facecolor='white', alpha=0.8))
 
         plt.title(title)
         plt.grid(True)
@@ -398,7 +392,9 @@ class MDAnalysisSystem:
         plt.close()
 
     def export_summary(self, df: pd.DataFrame) -> str:
-        """Export analysis summary to text file."""
+        """
+        Export analysis summary to text file.
+        """
         summary_file = self.working_dir / 'analysis_summary.txt'
 
         with open(summary_file, 'w') as f:
@@ -412,13 +408,11 @@ class MDAnalysisSystem:
             f.write(f"Target atom: {self.target_atom}\n\n")
 
             f.write("Temperature Range Analysis:\n")
-            f.write(
-                f"Temperature range: {df['temperature'].min()}-{df['temperature'].max()} K\n")
+            f.write(f"Temperature range: {df['temperature'].min()}-{df['temperature'].max()} K\n")
             f.write(f"Number of temperature points: {len(df)}\n\n")
 
             f.write("Diffusion Analysis:\n")
-            f.write(
-                f"Average D: {df['D_cm2_s'].mean():.2e} ± {df['D_std'].mean():.2e} cm²/s\n")
+            f.write(f"Average D: {df['D_cm2_s'].mean():.2e} ± {df['D_std'].mean():.2e} cm²/s\n")
 
             if len(df) > 1:
                 slope, _, _, _, _ = stats.linregress(
@@ -443,7 +437,9 @@ class MDAnalysisSystem:
 
 
 def run_analysis(analyzer: MDAnalysisSystem, temperatures: list) -> None:
-    """Run diffusion analysis and save results."""
+    """
+    Run diffusion analysis and save results.
+    """
     results_df = analyzer.analyze_temperature_range(temperatures)
     if results_df.empty:
         print("\nNo results to analyze")
@@ -460,7 +456,9 @@ def run_analysis(analyzer: MDAnalysisSystem, temperatures: list) -> None:
 
 
 def print_results(results_df: pd.DataFrame) -> None:
-    """Print diffusion analysis results."""
+    """
+    Print diffusion analysis results.
+    """
     print("\nProton Diffusion Analysis Results:")
     print("-" * 50)
     for _, row in results_df.iterrows():
@@ -469,14 +467,11 @@ def print_results(results_df: pd.DataFrame) -> None:
         print(f"Proton conductivity: {row['conductivity']:.2e} S/cm")
 
 
-def save_activation_energy(
-        results_df: pd.DataFrame,
-        structure_name: str) -> None:
-    """Calculate and save activation energy results."""
-    slope, _, r_value, _, _ = stats.linregress(
-        results_df['T_inverse'],
-        results_df['log10_D']
-    )
+def save_activation_energy(results_df: pd.DataFrame, structure_name: str) -> None:
+    """
+    Calculate and save activation energy results.
+    """
+    slope, _, r_value, _, _ = stats.linregress(results_df['T_inverse'], results_df['log10_D'])
     Ea = -slope * 1000 * np.log(10) * kB
 
     results_dir = Path("logs/md_analysis")
@@ -496,7 +491,9 @@ def save_activation_energy(
 
 
 def main():
-    """Analyze MD simulation results for proton diffusion."""
+    """
+    Analyze MD simulation results for proton diffusion.
+    """
     # Setup analysis parameters
     analysis_params = {
         'config': {
@@ -519,8 +516,7 @@ def main():
         analyzer = MDAnalysisSystem(**analysis_params)
         analyzer.working_dir = Path("logs/md_trajectories/Ba8Zr8O24_H2")
 
-        temp_dirs = [
-            d for d in analyzer.working_dir.glob("T_*K") if d.is_dir()]
+        temp_dirs = [d for d in analyzer.working_dir.glob("T_*K") if d.is_dir()]
         temperatures = [int(d.name.split('_')[1][:-1]) for d in temp_dirs]
 
         run_analysis(analyzer, temperatures)

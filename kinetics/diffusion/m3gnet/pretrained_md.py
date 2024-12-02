@@ -326,14 +326,12 @@ def main():
         )
 
         # Get simulation parameters
-        structure_file = Path(
-            simulation_params['simulation']['structure_file'])
+        structure_file = Path(simulation_params['simulation']['structure_file'])
         n_protons = simulation_params['simulation']['n_protons']
         temperatures = simulation_params['simulation']['temperatures']
 
         # Run simulation using the class method
-        trajectories = md_system.run_md(
-            structure_file, n_protons, temperatures)
+        trajectories = md_system.run_md(structure_file, n_protons, temperatures)
 
         # Save configuration
         simulation_params['results'] = {

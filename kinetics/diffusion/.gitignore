@@ -1,1 +1,4 @@
 *.pt
+*.lmdb
+*.lmdb-lock
+

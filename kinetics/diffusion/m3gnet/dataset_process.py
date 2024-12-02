@@ -14,7 +14,9 @@ warnings.simplefilter("ignore")
 
 
 def get_project_paths():
-    """Get project paths."""
+    """
+    Get project paths.
+    """
     root_dir = os.path.dirname(os.path.abspath(__file__))
 
     paths = {
@@ -67,7 +69,9 @@ class DataProcessor:
         return poscar.structure
 
     def load_data(self, bandgap_column: str = 'Bandgap_by_DFT') -> None:
-        """Load structures and bandgap values."""
+        """
+        Load structures and bandgap values.
+        """
         print("Loading data from files...")
         df = pd.read_csv(self.file_path)
         sampled_df = df.sample(frac=1.0, random_state=self.random_state)
@@ -89,7 +93,9 @@ class DataProcessor:
         print(f"Successfully loaded {len(self.structures)} structures")
 
     def create_dataset(self, normalize: bool = False) -> MGLDataset:
-        """Create graph dataset."""
+        """
+        Create graph dataset.
+        """
         if not self.structures:
             raise ValueError("No data loaded. Call load_data() first.")
 
@@ -97,10 +103,7 @@ class DataProcessor:
         self.element_list = get_element_list(self.structures)
 
         # Initialize graph converter
-        converter = Structure2Graph(
-            element_types=self.element_list,
-            cutoff=self.cutoff
-        )
+        converter = Structure2Graph(element_types=self.element_list, cutoff=self.cutoff)
 
         # Create dataset
         self.dataset = MGLDataset(
@@ -114,7 +117,9 @@ class DataProcessor:
     def create_dataloaders(
         self
     ) -> Tuple[MGLDataLoader, MGLDataLoader, MGLDataLoader]:
-        """Create train, validation and test dataloaders."""
+        """
+        Create train, validation and test dataloaders.
+        """
         if self.dataset is None:
             raise ValueError("Dataset not created.")
 
