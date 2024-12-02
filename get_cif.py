@@ -28,3 +28,4 @@ for mat in results:
     filename = mat.material_id + "_"+ mat.formula_pretty + ".cif"
     filename = os.path.join(output_dir, filename)
     mat.structure.to(filename=filename)
+    print(f"{len(results)} materials are found.")
