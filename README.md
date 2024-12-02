@@ -35,3 +35,6 @@ print(f"hydration energy = {hydration:5.3f} eV")
 print(f"oxygen vacation formation energy = {vacancy:5.3f} eV")
 print(f"proton formation energy = {oh:5.3f} eV")
 ```
+
+## Diffusion
+* Please see `README.md` in the `diffusion` directory.
