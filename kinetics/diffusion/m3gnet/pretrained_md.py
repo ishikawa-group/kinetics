@@ -309,7 +309,7 @@ def main():
                 'model_name': "M3GNet-MP-2021.2.8-PES",
                 'time_step': 1.0,
                 'friction': 0.02,
-                'total_steps': 10000,
+                'total_steps': 5000,
                 'output_interval': 50
             },
             'simulation': {
