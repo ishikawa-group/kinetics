@@ -38,3 +38,19 @@ print(f"proton formation energy = {oh:5.3f} eV")
 
 ## Diffusion
 * Please see `README.md` in the `diffusion` directory.
+
+---
+
+# Status
+* Bandgap calculation: done
+* Hydration energy: done
+* Convex hull: done
+* Proton diffusion constant
+  + M3GNet, pre-trained: done
+  + M3GNet, fine-tuning: on-going
+  + CHGNet, pre-trained: next
+  + CHGNet, fine-tuning: next^2
+  + LAMM(Fujitsu model): next^3
+
+---
+
