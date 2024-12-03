@@ -24,7 +24,7 @@
   + LAMM(Fujitsu model): next^3
  
 <div align="center">
-  <img src="./average_msd_600K.png" width="60%">
+  <img src="./average_msd_600K.png" width="50%">
 </div>
 
 ## Computational time benchmark
