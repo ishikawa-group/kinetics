@@ -18,9 +18,9 @@ print(f"bandgap = {bandgap:5.3f} eV")
 
 ## Hydration
 * Calculates following three properties:
-  1. oxygen atom vacancy formation energy
-  2. H atom adsorption energy (in bulk)
-  3. hydration energy
+1. oxygen atom vacancy formation energy
+2. H atom adsorption energy (in bulk)
+3. hydration energy
 
 ### Usage
 ```python
