@@ -63,7 +63,7 @@ def parse_args():
     parser.add_argument('--output-dir', type=str, default='./finetuning_md_results',
                         help='Directory to save outputs')
     parser.add_argument('--model-path', type=str,
-                        default="../vasp_json_training_finetuning_m3gnet_potential/finetuned_model/final_model",
+                        default="../pretraining_finetuning/finetuned_model/final_model",
                         help='Path to fine-tuned model')
     parser.add_argument('--device', type=str, default='cpu',
                         help='Device for computation (cpu/cuda)')
