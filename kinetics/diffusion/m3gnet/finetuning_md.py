@@ -4,15 +4,16 @@ import logging
 import argparse
 from pathlib import Path
 import matplotlib.pyplot as plt
-from ase.io.trajectory import Trajectory
+import statsmodels.api as sm
 from ase import Atom, Atoms
 from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
-from pymatgen.core import Structure
+from ase.io.trajectory import Trajectory
 from pymatgen.io.ase import AseAtomsAdaptor
+from mp_api.client import MPRester
 from pymatgen.io.vasp import Poscar
-import torch
-from chgnet.model import CHGNet
-from chgnet.model.dynamics import MolecularDynamics
+from pymatgen.core import Structure
+import matgl
+from matgl.ext.ase import PESCalculator, MolecularDynamics
 
 warnings.filterwarnings("ignore")
 
@@ -38,6 +39,40 @@ def setup_logging(log_dir: str = "logs") -> None:
     )
 
 
+def parse_args():
+    """
+    Parse command line arguments
+
+    Args:
+        None
+
+    Returns:
+        args (argparse.Namespace): parsed arguments
+    """
+    parser = argparse.ArgumentParser(description='MD Simulation for BaZrO3 with protons')
+    parser.add_argument('--temperatures', type=float, nargs='+', default=[900],
+                        help='Temperatures for MD simulation (K), e.g. 800 900 1000')
+    parser.add_argument('--timestep', type=float, default=1.0,
+                        help='Timestep for MD simulation (fs)')
+    parser.add_argument('--friction', type=float, default=0.002,
+                        help='Friction coefficient for MD')
+    parser.add_argument('--n-steps', type=int, default=2000,
+                        help='Number of MD steps')
+    parser.add_argument('--n-protons', type=int, default=1,
+                        help='Number of protons to add')
+    parser.add_argument('--output-dir', type=str, default='./finetuning_md_results',
+                        help='Directory to save outputs')
+    parser.add_argument('--model-path', type=str,
+                        default="./finetuned_model/final_model",
+                        help='Path to fine-tuned model')
+    parser.add_argument('--device', type=str, default='cpu',
+                        help='Device for computation (cpu/cuda)')
+    parser.add_argument('--debug', action='store_true',
+                        help='Enable debug mode')
+
+    return parser.parse_args()
+
+
 def add_protons(atoms: Atoms, n_protons: int) -> Atoms:
     """
     Add protons to the structure based on theoretical understanding.
@@ -56,7 +91,8 @@ def add_protons(atoms: Atoms, n_protons: int) -> Atoms:
     o_indices = [i for i, symbol in enumerate(atoms.get_chemical_symbols()) if symbol == 'O']
 
     if len(o_indices) < n_protons:
-        logger.warning(f"Number of protons ({n_protons}) exceeds number of O atoms ({len(o_indices)})")
+        logger.warning(
+            f"Number of protons ({n_protons}) exceeds number of O atoms ({len(o_indices)})")
         n_protons = len(o_indices)
 
     used_oxygens = []
@@ -66,7 +102,8 @@ def add_protons(atoms: Atoms, n_protons: int) -> Atoms:
     for i in range(n_protons):
         available_oxygens = [idx for idx in o_indices if idx not in used_oxygens]
         if not available_oxygens:
-            logger.warning("No more available oxygen atoms for proton incorporation")
+            logger.warning(
+                "No more available oxygen atoms for proton incorporation")
             break
 
         o_idx = available_oxygens[0]
@@ -78,8 +115,13 @@ def add_protons(atoms: Atoms, n_protons: int) -> Atoms:
             if other_idx != o_idx:
                 dist = atoms.get_distance(o_idx, other_idx, mic=True)
                 if dist < MAX_NEIGHBOR_DIST:
-                    vec = atoms.get_distance(o_idx, other_idx, vector=True, mic=True)
-                    neighbors.append({'idx': other_idx, 'dist': dist, 'vec': vec})
+                    vec = atoms.get_distance(
+                        o_idx, other_idx, vector=True, mic=True)
+                    neighbors.append({
+                        'idx': other_idx,
+                        'dist': dist,
+                        'vec': vec
+                    })
 
         direction = np.zeros(3)
         if neighbors:
@@ -110,7 +152,8 @@ def add_protons(atoms: Atoms, n_protons: int) -> Atoms:
             h_pos = cell.T @ scaled_pos
 
         if not is_valid:
-            logger.warning(f"Invalid proton position near O atom {o_idx}, trying different direction")
+            logger.warning(
+                f"Invalid proton position near O atom {o_idx}, trying different direction")
             continue
 
         atoms.append(Atom('H', position=h_pos))
@@ -127,54 +170,21 @@ def add_protons(atoms: Atoms, n_protons: int) -> Atoms:
     return atoms
 
 
-def parse_args():
-    """
-    Parse command line arguments
+def get_bazro3_structure():
+    """Get structure with mp-3834 ID from Materials Project database"""
+    mpr = MPRester(api_key="kzum4sPsW7GCRwtOqgDIr3zhYrfpaguK")
+    structure = mpr.get_structure_by_material_id("mp-3834")
 
-    Args:
-        None
+    if not structure:
+        raise ValueError("Structure mp-3834 not found in the database")
 
-    Returns:
-        args (argparse.Namespace): parsed arguments
-    """
-    parser = argparse.ArgumentParser(description='CHGNet Finetuning MD Simulation')
-    parser.add_argument('--structure-file', type=str, default="BaZrO3.cif",
-                        help='Path to the structure CIF file')
-    parser.add_argument('--model-path', type=str,
-                        default="../pretraining_finetuning_chgnet/logs/CHGNet_finetuning/checkpoints/chgnet_finetuned_model.pth",
-                        help='Path to the finetuned model')
-    parser.add_argument('--ensemble', type=str, default="npt",
-                        choices=['npt', 'nve', 'nvt'],
-                        help='Type of ensemble')
-    parser.add_argument('--temperatures', type=float, nargs='+', default=[600],
-                        help='Temperatures for MD simulation (K), e.g. 800 900 1000')
-    parser.add_argument('--timestep', type=float, default=1.0,
-                        help='Timestep for MD simulation (fs)')
-    parser.add_argument('--n-steps', type=int, default=2000,
-                        help='Number of MD steps')
-    parser.add_argument('--n-protons', type=int, default=1,
-                        help='Number of protons to add')
-    parser.add_argument('--output-dir', type=str, default='./finetuning_md_results',
-                        help='Directory to save outputs')
-    parser.add_argument('--debug', action='store_true',
-                        help='Enable debug mode')
-
-    return parser.parse_args()
+    return structure
 
 
-def calculate_msd(trajectory: Trajectory, atom_index: int, timestep: float = 1.0):
-    """
-    Calculate Mean Square Displacement for a specific atom
-
-    Args:
-        trajectory: ASE trajectory
-        atom_index: Index of the atom to track
-        timestep: MD timestep in fs
-
-    Returns:
-        tuple: (time array, MSD array)
-    """
+def calculate_msd(trajectory, atom_index, timestep=1.0):
+    """Calculate Mean Square Displacement for a specific atom"""
     positions = []
+
     for atoms in trajectory:
         positions.append(atoms.positions[atom_index])
 
@@ -187,14 +197,14 @@ def calculate_msd(trajectory: Trajectory, atom_index: int, timestep: float = 1.0
     return time, msd
 
 
-def analyze_msd(trajectories: list, atom_index: int, temperatures: list,
+def analyze_msd(trajectories: list, proton_index: int, temperatures: list,
                 timestep: float, output_dir: Path, logger: logging.Logger) -> None:
     """
     Analyze MSD data and create plots for all temperatures
 
     Args:
         trajectories: List of trajectory file paths
-        atom_index: Index of the atom to track
+        proton_index: Index of the proton to track
         temperatures: List of temperatures
         timestep: MD timestep
         output_dir: Output directory
@@ -206,10 +216,11 @@ def analyze_msd(trajectories: list, atom_index: int, temperatures: list,
     for traj_file, temp in zip(trajectories, temperatures):
         logger.info(f"Analyzing trajectory for {temp}K...")
         trajectory = Trajectory(str(traj_file), 'r')
-        time, msd = calculate_msd(trajectory, atom_index, timestep=timestep)
+        time, msd = calculate_msd(trajectory, proton_index, timestep=timestep)
 
-        A = np.vstack([time, np.ones(len(time))]).T
-        slope, _ = np.linalg.lstsq(A, msd, rcond=None)[0]
+        model = sm.OLS(msd, time)
+        result = model.fit()
+        slope = result.params[0]
         D = slope / 6
 
         plt.plot(time, msd, label=f"{temp}K")
@@ -220,11 +231,11 @@ def analyze_msd(trajectories: list, atom_index: int, temperatures: list,
         logger.info(f"  Maximum MSD: {np.max(msd):.2f} Å²")
         logger.info(f"  Average MSD: {np.mean(msd):.2f} Å²")
 
-    plt.title("CHGNet Finetuning MSD", fontsize=fontsize)
-    plt.xlabel("Time (ps)", fontsize=fontsize-4)
-    plt.ylabel("MSD (Å²)", fontsize=fontsize-4)
-    plt.tick_params(labelsize=fontsize-4)
-    plt.legend(fontsize=fontsize-4)
+    plt.title("M3GNet fine-tuned by VASP", fontsize=fontsize)
+    plt.xlabel("Time (ps)", fontsize=fontsize)
+    plt.ylabel("MSD (Å²)", fontsize=fontsize)
+    plt.tick_params(labelsize=fontsize - 4)
+    plt.legend(fontsize=fontsize - 4)
     plt.tight_layout()
 
     plt.savefig(output_dir / 'finetuning_msd.png', dpi=300, bbox_inches='tight')
@@ -249,30 +260,22 @@ def run_md_simulation(args) -> None:
             logger.setLevel(logging.DEBUG)
             logger.debug("Debug mode enabled")
 
-        # Load structure
-        logger.info(f"Loading structure from: {args.structure_file}")
-        structure = Structure.from_file(args.structure_file)
-        logger.info(f"Structure loaded: {structure.composition.reduced_formula}")
+        logger.info("Loading BaZrO3 structure...")
+        test_structure = get_bazro3_structure()
+        logger.info("Successfully loaded BaZrO3 structure")
 
-        # Convert to ASE atoms and add protons
-        atoms_adaptor = AseAtomsAdaptor()
-        atoms = atoms_adaptor.get_atoms(structure)
+        logger.info("Loading potential model...")
+        pot = matgl.load_model(args.model_path)
+        logger.info(f"Loaded fine-tuned model from {args.model_path}")
+
+        ase_adaptor = AseAtomsAdaptor()
+        atoms = ase_adaptor.get_atoms(test_structure)
         atoms = add_protons(atoms, args.n_protons)
-        proton_index = len(atoms) - 1  # Last added atom is the proton
+        proton_index = len(atoms) - 1
 
-        # Convert back to Structure for MD
-        pmg_structure = atoms_adaptor.get_structure(atoms)
-
-        # Save structure with protons
+        pmg_structure = AseAtomsAdaptor().get_structure(atoms)
         poscar = Poscar(pmg_structure)
         poscar.write_file(output_dir / "POSCAR_with_H")
-
-        # Load model
-        logger.info(f"Loading finetuned CHGNet model from: {args.model_path}")
-        model = CHGNet()
-        model.load_state_dict(torch.load(args.model_path, map_location="cpu"))
-        model.eval()
-        logger.info("Model loaded successfully")
 
         trajectory_files = []
 
@@ -282,36 +285,36 @@ def run_md_simulation(args) -> None:
             temp_dir = output_dir / f"T_{temp}K"
             temp_dir.mkdir(exist_ok=True)
 
-            # Prepare trajectory and log files
-            traj_file = temp_dir / f"md_out_{args.ensemble}_T_{temp}.traj"
-            md_log_file = temp_dir / f"md_out_{args.ensemble}_T_{temp}.log"
-            trajectory_files.append(traj_file)
+            current_atoms = atoms.copy()
+            current_atoms.calc = PESCalculator(potential=pot)
 
-            # Setup MD simulation
-            logger.info("Initializing MD simulation...")
-            md = MolecularDynamics(
-                atoms=pmg_structure,
-                model=model,
-                ensemble=args.ensemble,
+            MaxwellBoltzmannDistribution(current_atoms, temperature_K=temp)
+
+            traj_file = temp_dir / f"md_bazro3h_{temp}K.traj"
+            trajectory_files.append(traj_file)
+            traj = Trajectory(str(traj_file), 'w', current_atoms)
+
+            driver = MolecularDynamics(
+                current_atoms,
+                potential=pot,
                 temperature=temp,
                 timestep=args.timestep,
-                trajectory=str(traj_file),
-                logfile=str(md_log_file),
-                loginterval=100
+                friction=args.friction,
+                trajectory=traj
             )
 
-            # Run simulation
             logger.info(f"Running MD at {temp}K...")
             for step in range(args.n_steps):
-                md.run(1)
+                driver.run(1)
                 if step % 100 == 0:
                     logger.info(f"Temperature {temp}K - Step {step}/{args.n_steps}")
 
-        # Analyze trajectories with proton index
+            traj.close()
+
         analyze_msd(trajectory_files, proton_index, args.temperatures,
                     args.timestep, output_dir, logger)
 
-        logger.info("\nAll MD simulations and analysis completed successfully")
+        logger.info("\nMD simulations completed successfully")
 
     except Exception as e:
         logger.error(f"MD simulation failed: {str(e)}")

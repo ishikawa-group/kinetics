@@ -52,11 +52,11 @@ def parse_args():
     parser = argparse.ArgumentParser(description='MD Simulation for BaZrO3 with protons')
     parser.add_argument('--temperatures', type=float, nargs='+', default=[600],
                         help='Temperatures for MD simulation (K), e.g. 800 900 1000')
-    parser.add_argument('--timestep', type=float, default=1.0,
+    parser.add_argument('--timestep', type=float, default=2.0,
                         help='Timestep for MD simulation (fs)')
     parser.add_argument('--friction', type=float, default=0.002,
                         help='Friction coefficient for MD')
-    parser.add_argument('--n-steps', type=int, default=4000,
+    parser.add_argument('--n-steps', type=int, default=1000,
                         help='Number of MD steps')
     parser.add_argument('--n-protons', type=int, default=1,
                         help='Number of protons to add')
