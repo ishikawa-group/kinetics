@@ -136,16 +136,16 @@ def parse_args():
         args (argparse.Namespace): parsed arguments
     """
     parser = argparse.ArgumentParser(description='CHGNet pretraining MD Simulation')
-    parser.add_argument('--structure-file', type=str, default="BaZrO3.cif",
+    parser.add_argument('--structure-file', type=str, default="./strucutres/BaZrO3.cif",
                         help='Path to the structure CIF file')
     parser.add_argument('--ensemble', type=str, default="npt",
                         choices=['npt', 'nve', 'nvt'],
                         help='Type of ensemble')
     parser.add_argument('--temperatures', type=float, nargs='+', default=[600],
                         help='Temperatures for MD simulation (K), e.g. 800 900 1000')
-    parser.add_argument('--timestep', type=float, default=2.0,
+    parser.add_argument('--timestep', type=float, default=1.0,
                         help='Timestep for MD simulation (fs)')
-    parser.add_argument('--n-steps', type=int, default=3000,
+    parser.add_argument('--n-steps', type=int, default=2000,
                         help='Number of MD steps')
     parser.add_argument('--n-protons', type=int, default=1,
                         help='Number of protons to add')

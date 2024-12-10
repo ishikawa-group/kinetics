@@ -138,7 +138,7 @@ def parse_args():
         args (argparse.Namespace): parsed arguments
     """
     parser = argparse.ArgumentParser(description='CHGNet Finetuning MD Simulation')
-    parser.add_argument('--structure-file', type=str, default="BaZrO3.cif",
+    parser.add_argument('--structure-file', type=str, default="./strucutres/BaZrO3.cif",
                         help='Path to the structure CIF file')
     parser.add_argument('--model-path', type=str,
                         default="./finetuning_results/checkpoints/chgnet_finetuned.pth",

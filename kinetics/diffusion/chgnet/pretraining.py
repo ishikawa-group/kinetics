@@ -45,7 +45,7 @@ def parse_args():
         args (argparse.Namespace): parsed arguments
     """
     parser = argparse.ArgumentParser(description='CHGNet Training')
-    parser.add_argument('--json-path', type=str, default="vasp_dataset.json",
+    parser.add_argument('--json-path', type=str, default="./data/dataset.json",
                         help='Path to the JSON dataset file')
     parser.add_argument('--batch-size', type=int, default=2,
                         help='Batch size for training')
@@ -57,7 +57,7 @@ def parse_args():
                         help='Number of training epochs')
     parser.add_argument('--learning-rate', type=float, default=1e-2,
                         help='Learning rate for optimizer')
-    parser.add_argument('--output-dir', type=str, default='./training_results',
+    parser.add_argument('--output-dir', type=str, default='./pretraining_results',
                         help='Directory to save outputs')
     parser.add_argument('--device', type=str, default='cpu',
                         help='Device for computation (cpu/cuda)')

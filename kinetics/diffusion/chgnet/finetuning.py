@@ -45,7 +45,7 @@ def parse_args():
         args (argparse.Namespace): parsed arguments
     """
     parser = argparse.ArgumentParser(description='CHGNet Finetuning')
-    parser.add_argument('--json-path', type=str, default="vasp_dataset.json",
+    parser.add_argument('--json-path', type=str, default="./data/dataset.json",
                         help='Path to the JSON dataset file')
     parser.add_argument('--batch-size', type=int, default=2,
                         help='Batch size for training')
