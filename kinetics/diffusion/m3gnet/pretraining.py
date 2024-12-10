@@ -8,7 +8,7 @@ from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
 from pytorch_lightning.loggers import CSVLogger
 import matgl
 from matgl.utils.training import PotentialLightningModule
-from dataset_json import prepare_data, cleanup
+from dataset import prepare_data, cleanup
 
 
 def setup_logging(log_dir: str = "logs") -> None:
@@ -61,7 +61,7 @@ def parse_args():
                         help='Patience for early stopping')
     parser.add_argument('--output-dir', type=str, default='./trained_model',
                         help='Directory to save outputs')
-    parser.add_argument('--dataset-path', type=str, default='dataset.json',
+    parser.add_argument('--dataset-path', type=str, default='./data/dataset.json',
                         help='Path to dataset JSON file')
     parser.add_argument('--device', type=str, default='cpu',
                         help='Training device (cpu/cuda)')
