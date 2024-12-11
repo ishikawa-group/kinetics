@@ -4,16 +4,16 @@ import json
 import numpy as np
 from pymatgen.io.vasp import Poscar, Outcar, Vasprun
 import logging
-from datetime import datetime
 from pathlib import Path
+
 
 def setup_logging():
     """
     Set up logging configuration
-    
+
     Args:
         None
-    
+
     Returns:
         logger: Logger object
     """
@@ -25,6 +25,7 @@ def setup_logging():
         ]
     )
     return logging.getLogger(__name__)
+
 
 def parse_vasp_files(poscar_path, outcar_path, vasprun_path):
     """Parse VASP output files and return the data"""
@@ -101,11 +102,12 @@ def parse_vasp_files(poscar_path, outcar_path, vasprun_path):
         "stress": stress
     }
 
+
 def process_all_calculations(base_dir, output_file):
     """Process all VASP calculations and combine into one dataset"""
     logger = setup_logging()
     logger.info("Preparing datasets...")
-    
+
     # Initialize the combined dataset structure
     dataset = {
         "structures": [],
@@ -123,17 +125,17 @@ def process_all_calculations(base_dir, output_file):
     for outcar_path in sorted(Path(base_dir).glob("**/OUTCAR")):
         calc_dir = outcar_path.parent
         logger.info(f"Processing directory: {calc_dir}")
-        
+
         # Set up file paths
         poscar_path = os.path.join(calc_dir, "CONTCAR")
         if not os.path.exists(poscar_path):
             poscar_path = os.path.join(calc_dir, "POSCAR")
         outcar_path = str(outcar_path)
         vasprun_path = os.path.join(calc_dir, "vasprun.xml")
-        
+
         # Parse the files
         result = parse_vasp_files(poscar_path, outcar_path, vasprun_path)
-        
+
         if result is not None:
             # Add to the combined dataset
             dataset["structures"].append(result["structure"])
@@ -159,8 +161,9 @@ def process_all_calculations(base_dir, output_file):
     logger.info(f"Successfully processed: {success_count}")
     logger.info(f"Processing failed: {failed_count}")
     logger.info(f"Total attempts: {success_count + failed_count}")
-    
+
     return True
+
 
 def main():
     if len(sys.argv) < 2:
@@ -169,12 +172,13 @@ def main():
 
     base_dir = sys.argv[1]
     output_file = sys.argv[2] if len(sys.argv) > 2 else "dataset.json"
-    
+
     if not os.path.exists(base_dir):
         print(f"Error: Directory not found: {base_dir}")
         sys.exit(1)
 
     process_all_calculations(base_dir, output_file)
+
 
 if __name__ == "__main__":
     main()
