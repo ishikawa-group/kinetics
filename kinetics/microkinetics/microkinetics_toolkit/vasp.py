@@ -35,8 +35,8 @@ def set_vasp_calculator(atom_type="molecule", dfttype="gga", do_optimization=Fal
 
     # common setting
     xc = "pbe"
-    encut = 400.0
-    ediff  = 1.0e-4
+    encut = 400.0  # fails at 400-450?
+    ediff  = 1.0e-5  # 1.0e-4
     ediffg = -50.0e-2
     lorbit = 10
     algo = "Normal"
@@ -46,11 +46,12 @@ def set_vasp_calculator(atom_type="molecule", dfttype="gga", do_optimization=Fal
     npar = 10  # change according to the computational environment
     nsim = npar
     ispin = 2
+    isym = 0  # switching off symmetry
     kgamma = True
     # setups = {"K": "_pv", "Cr": "_pv", "Mn": "_pv", "Fe": "_pv", "Cs": "_sv"}
     setups = {"Ca": "_sv", "K": "_sv", "Ba": "_sv", "Cr": "_sv", "Mn": "_sv", 
-              "Fe": "_sv", "Cs": "_sv", "Rb": "_sv", "Sr": "_sv", "Er": "_2",
-              "Zr": "_sv", "Dy": "_3", "Sm": "_3"}
+              "Fe": "_sv", "Cs": "_sv", "Rb": "_sv", "Sr": "_sv", "Er": "_3",
+              "Zr": "_sv", "Dy": "_3", "Sm": "_3", "Pa": "_s", "Tm": "_3", "Nd": "_3"}
     lasph = False
     lwave = False
     lcharg = False
@@ -87,7 +88,7 @@ def set_vasp_calculator(atom_type="molecule", dfttype="gga", do_optimization=Fal
     calc = Vasp(prec="Normal", xc=xc, pp="pbe", encut=encut, kpts=kpts, ismear=ismear, ediff=ediff, ediffg=ediffg,
                 ibrion=ibrion, potim=potim, nsw=nsw, algo=algo, ldipol=ldipol, idipol=idipol, setups=setups, lasph=True,
                 ispin=ispin, npar=npar, nsim=nsim, nelmin=nelmin, nelm=nelm, lreal=lreal, lorbit=lorbit, kgamma=kgamma,
-                ldau=ldau, ldautype=ldautype, ldau_luj=ldau_luj,
+                ldau=ldau, ldautype=ldautype, ldau_luj=ldau_luj, isym=isym,
                 lwave=lwave, lcharg=lcharg,
                 amix=amix, amix_mag=amix_mag, bmix=bmix, bmix_mag=bmix_mag,
                 )
