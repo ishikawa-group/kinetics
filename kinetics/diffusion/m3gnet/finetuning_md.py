@@ -8,7 +8,7 @@ import statsmodels.api as sm
 from ase import Atom, Atoms
 from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
 from ase.io.trajectory import Trajectory
-from ase.optimize import BFGS  # 新增: 用于能量最小化
+from ase.optimize import BFGS 
 from pymatgen.io.ase import AseAtomsAdaptor
 from mp_api.client import MPRester
 from pymatgen.io.vasp import Poscar
@@ -78,13 +78,13 @@ def parse_args():
 
 def add_protons(atoms: Atoms, n_protons: int, pot=None) -> Atoms: 
     """
-    Add protons to the structure based on theoretical understanding.
-
+    Add protons to the structure near oxygen atoms
+    
     Args:
-        atoms (Atoms): Initial structure
+        atoms (Atoms): Input structure
         n_protons (int): Number of protons to add
-        pot (matgl.Potential): potential model for energy minimization
-
+        pot (matgl.Potential): Potential model for energy minimization
+        
     Returns:
         Atoms: Structure with protons added
     """
@@ -171,7 +171,7 @@ def add_protons(atoms: Atoms, n_protons: int, pot=None) -> Atoms:
     logger.info(f"Successfully added {n_protons} protons")
     logger.info(f"Final composition: {atoms.get_chemical_formula()}")
 
-    # 新增: 如果提供了势能模型，进行能量最小化
+    # Perform energy minimization
     if pot is not None:
         logger.info("Starting energy minimization...")
         atoms.calc = PESCalculator(potential=pot)
@@ -186,8 +186,16 @@ def add_protons(atoms: Atoms, n_protons: int, pot=None) -> Atoms:
 
 
 def get_bazro3_structure():
-    """Get structure with mp-3834 ID from Materials Project database"""
-    mpr = MPRester(api_key="kzum4sPsW7GCRwtOqgDIr3zhYrfpaguK")
+    """
+    Load BaZrO3 structure from Materials Project
+    
+    Args:
+        None
+    
+    Returns:
+        Structure: BaZrO3 structure
+    """
+    mpr = MPRester(api_key="YOUR_API_KEY")
     structure = mpr.get_structure_by_material_id("mp-3834")
 
     if not structure:
@@ -200,6 +208,23 @@ def calculate_msd_sliding_window(trajectory: Trajectory, atom_indices: list,
                                 timestep: float = 1.0, window_size: int = None):
     """
     Calculate MSD using sliding window method for both directional and total MSD.
+    
+    Args:
+        trajectory (Trajectory): ASE trajectory object
+        atom_indices (list): List of atom indices to calculate MSD
+        timestep (float): Timestep for MD simulation
+        window_size (int): Window size for MSD calculation
+        
+    Returns:
+        time (np.ndarray): Time array in ps
+        msd_x (np.ndarray): MSD in x-direction
+        msd_y (np.ndarray): MSD in y-direction
+        msd_z (np.ndarray): MSD in z-direction
+        msd_total (np.ndarray): Total MSD
+        D_x (float): Diffusion coefficient in x-direction
+        D_y (float): Diffusion coefficient in y-direction
+        D_z (float): Diffusion coefficient in z-direction
+        D_total (float): Total diffusion coefficient
     """
     positions_all = np.array([atoms.get_positions() for atoms in trajectory])
     positions = positions_all[:, atom_indices]
@@ -262,7 +287,19 @@ def analyze_msd(trajectories: list, proton_index: int, temperatures: list,
                 timestep: float, output_dir: Path, logger: logging.Logger,
                 window_size: int = None) -> None:
     """
-    Analyze MSD data and create separate plots for x, y, z directions and total MSD
+    Analyze MSD for all components and plot results
+    
+    Args:
+        trajectories (list): List of trajectory files
+        proton_index (int): Index of the proton atom
+        temperatures (list): List of temperatures
+        timestep (float): Timestep for MD simulation
+        output_dir (Path): Output directory
+        logger (logging.Logger): Logger object
+        window_size (int): Window size for MSD calculation
+        
+    Returns:
+        None
     """
     # First create subplot figure with all components
     fontsize = 24
@@ -359,6 +396,9 @@ def run_md_simulation(args) -> None:
 
     Args:
         args (argparse.Namespace): command line arguments
+        
+    Returns:
+        None
     """
     try:
         output_dir = Path(args.output_dir)

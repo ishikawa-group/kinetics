@@ -185,8 +185,14 @@ def add_protons(atoms: Atoms, n_protons: int, pot=None) -> Atoms:
 def get_bazro3_structure() -> Structure:
     """
     Get BaZrO3 structure from Materials Project
+    
+    Args:
+        None
+        
+    Returns:
+        structure (Structure): structure
     """
-    mpr = MPRester(api_key="kzum4sPsW7GCRwtOqgDIr3zhYrfpaguK")
+    mpr = MPRester(api_key="YOUR_API_KEY")
     structure = mpr.get_structure_by_material_id("mp-3834")
 
     if not structure:
@@ -199,6 +205,23 @@ def calculate_msd_sliding_window(trajectory: Trajectory, atom_indices: list,
                                  timestep: float = 1.0, window_size: int = None):
     """
     Calculate MSD using sliding window method for both directional and total MSD.
+    
+    Args:
+        trajectory (Trajectory): ASE trajectory object
+        atom_indices (list): indices of atoms to calculate MSD
+        timestep (float): timestep in fs
+        window_size (int): window size for MSD calculation
+        
+    Returns:
+        time (np.ndarray): time array in ps
+        msd_x (np.ndarray): MSD in x-direction
+        msd_y (np.ndarray): MSD in y-direction
+        msd_z (np.ndarray): MSD in z-direction
+        msd_total (np.ndarray): total MSD
+        D_x (float): diffusion coefficient in x-direction
+        D_y (float): diffusion coefficient in y-direction
+        D_z (float): diffusion coefficient in z-direction
+        D_total (float): total diffusion coefficient
     """
     positions_all = np.array([atoms.get_positions() for atoms in trajectory])
     positions = positions_all[:, atom_indices]

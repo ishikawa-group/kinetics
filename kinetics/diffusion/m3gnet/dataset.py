@@ -13,6 +13,16 @@ from matgl.config import DEFAULT_ELEMENTS
 
 
 def load_structures_from_json(json_path):
+    """
+    Load structures and energies from a JSON file.
+    
+    Args:
+        json_path (str): path to the JSON file
+        
+    Returns:
+        structures (list): list of pymatgen.Structure objects
+        energies (list): list of energies
+    """
     with open(json_path, 'r') as f:
         data = json.load(f)
 
@@ -37,6 +47,18 @@ def load_structures_from_json(json_path):
 
 
 def prepare_data(json_path, batch_size=16):
+    """
+    Prepare data for training.
+    
+    Args:
+        json_path (str): path to the JSON file
+        batch_size (int): batch size
+        
+    Returns:
+        train_loader (MGLDataLoader): training data loader
+        val_loader (MGLDataLoader): validation data loader
+        test_loader (MGLDataLoader): test data loader
+    """
     # Clear DGL cache
     os.system('rm -r ~/.dgl')
 
@@ -94,6 +116,15 @@ def prepare_data(json_path, batch_size=16):
 
 
 def cleanup():
+    """
+    Clean up temporary files.
+    
+    Args:
+        None
+        
+    Returns:
+        None
+    """
     # Clean up temporary files
     for fn in ("dgl_graph.bin", "lattice.pt", "dgl_line_graph.bin", "state_attr.pt", "labels.json"):
         try:
