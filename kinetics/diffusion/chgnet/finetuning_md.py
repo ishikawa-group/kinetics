@@ -71,8 +71,14 @@ def parse_args():
                         help='Directory to save outputs')
     parser.add_argument('--window-size', type=int, default=None,
                         help='Window size for MSD calculation')
+    parser.add_argument('--loginterval', type=int, default=20,
+                        help='Logging interval for MD simulation')
+    parser.add_argument('--use-device', type=str, default='cpu',
+                        choices=['cpu', 'cuda'],
+                        help='Device to use for computation (cpu or cuda)')
     parser.add_argument('--debug', action='store_true',
                         help='Enable debug mode')
+
     return parser.parse_args()
 
 
@@ -166,7 +172,8 @@ def add_protons(atoms: Atoms, n_protons: int) -> Atoms:
 
 
 def calculate_msd_sliding_window(trajectory: Trajectory, atom_indices: list,
-                                 timestep: float = 0.5, loginterval: int = 20, window_size: int = None):
+                                 timestep: float = 0.5,  window_size: int = None,
+                                 loginterval: int = 20):
     """
     Calculate mean squared displacement (MSD) using a sliding window approach
 
@@ -240,7 +247,7 @@ def calculate_msd_sliding_window(trajectory: Trajectory, atom_indices: list,
 
 def analyze_msd(trajectories: list, proton_index: int, temperatures: list,
                 timestep: float, output_dir: Path, logger: logging.Logger,
-                window_size: int = None) -> None:
+                window_size: int = None, loginterval: int = 20) -> None:
     """
     Analyze trajectories by calculating mean squared displacement (MSD) for each component
 
@@ -252,6 +259,7 @@ def analyze_msd(trajectories: list, proton_index: int, temperatures: list,
         output_dir (Path): Output directory
         logger (logging.Logger): Logger object
         window_size (int): Size of sliding window for MSD calculation
+        loginterval (int): Logging interval for MD simulation
 
     Returns:
         None
@@ -267,7 +275,8 @@ def analyze_msd(trajectories: list, proton_index: int, temperatures: list,
         trajectory = Trajectory(str(traj_file), 'r')
 
         time, msd_x, msd_y, msd_z, msd_total, D_x, D_y, D_z, D_total = calculate_msd_sliding_window(
-            trajectory, [proton_index], timestep=timestep, window_size=window_size
+            trajectory, [proton_index], timestep=timestep,
+            window_size=window_size, loginterval=loginterval
         )
 
         # Convert diffusion coefficients to cm²/s
@@ -306,8 +315,9 @@ def analyze_msd(trajectories: list, proton_index: int, temperatures: list,
 
     for traj_file, temp in zip(trajectories, temperatures):
         trajectory = Trajectory(str(traj_file), 'r')
-        time, _, _, _, msd_total, _, _, _, D_total = calculate_msd_sliding_window(
-            trajectory, [proton_index], timestep=timestep, window_size=window_size
+        time, msd_x, msd_y, msd_z, msd_total, D_x, D_y, D_z, D_total = calculate_msd_sliding_window(
+            trajectory, [proton_index], timestep=timestep,
+            window_size=window_size, loginterval=loginterval
         )
 
         D_cm2s = D_total * 1e-16 / 1e-12
@@ -420,8 +430,8 @@ def run_md_simulation(args) -> None:
                 timestep=args.timestep,
                 trajectory=str(traj_file),
                 logfile=str(md_log_file),
-                loginterval=20,  # Increased logging frequency
-                use_device='cpu'  # Explicitly specify device
+                loginterval=args.loginterval,  # Increased logging frequency
+                use_device=args.use_device  # Explicitly specify device
             )
 
             # Run simulation
@@ -435,7 +445,8 @@ def run_md_simulation(args) -> None:
 
         # Analyze trajectories with window-based MSD calculation
         analyze_msd(trajectory_files, proton_index, args.temperatures,
-                    args.timestep, output_dir, logger, args.window_size)
+                    args.timestep, output_dir, logger, args.window_size,
+                    loginterval=args.loginterval)
 
         logger.info("\nAll MD simulations and analysis completed successfully")
 
