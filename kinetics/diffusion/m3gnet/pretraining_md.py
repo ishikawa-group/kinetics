@@ -13,11 +13,14 @@ from pymatgen.io.ase import AseAtomsAdaptor
 from mp_api.client import MPRester
 from pymatgen.io.vasp import Poscar
 from pymatgen.core import Structure
+import torch
 import matgl
 from matgl.ext.ase import PESCalculator, MolecularDynamics
 
 warnings.filterwarnings("ignore")
 
+# Set default device to CUDA if available
+# torch.set_default_device("cuda")
 
 def setup_logging(log_dir: str = "logs") -> None:
     """
