@@ -52,7 +52,7 @@ if __name__ == "__main__":
     import os
     import glob
 
-    directory = '/ABO3_cif/'
+    directory = '/ABO3_cif_large/'
 
     # Loop over files in the directory
     cif_files = glob.glob(os.getcwd() + directory + "*.cif")
@@ -64,4 +64,5 @@ if __name__ == "__main__":
 
         eta = get_overpotential_for_cif(cif_file=cif_file)
 
-        print(f"file = {cif_file:24.22s}, eta = {eta:5.3f} eV")
+        basename = os.path.basename(cif_file)
+        print(f"file = {basename:26.24s}, eta = {eta:5.3f} eV", flush=True)

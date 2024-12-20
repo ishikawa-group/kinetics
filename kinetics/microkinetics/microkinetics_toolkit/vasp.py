@@ -16,9 +16,9 @@ def set_vasp_calculator(atom_type="molecule", dfttype="gga", do_optimization=Fal
         ldipol = False
         idipol = None
     elif atom_type == "surface":
-        kpt  = 2
+        kpt  = 3
         kpts = [kpt, kpt, 1]
-        ismear = 0
+        ismear = 1
         lreal = True  # False will take very long time
         ldipol = True
         idipol = 3
@@ -35,14 +35,14 @@ def set_vasp_calculator(atom_type="molecule", dfttype="gga", do_optimization=Fal
 
     # common setting
     xc = "pbe"
-    encut = 400.0  # fails at 400-450?
-    ediff  = 1.0e-5  # 1.0e-4
-    ediffg = -50.0e-2
+    encut = 300.0  # fails at 400-450?
+    ediff  = 1.0e-5
+    ediffg = -5e-2
     lorbit = 10
     algo = "Normal"
     # algo = "Fast"
     nelmin = 5
-    nelm = 40
+    nelm = 40 # 40
     npar = 10  # change according to the computational environment
     nsim = npar
     ispin = 2
@@ -50,8 +50,8 @@ def set_vasp_calculator(atom_type="molecule", dfttype="gga", do_optimization=Fal
     kgamma = True
     # setups = {"K": "_pv", "Cr": "_pv", "Mn": "_pv", "Fe": "_pv", "Cs": "_sv"}
     setups = {"Ca": "_sv", "K": "_sv", "Ba": "_sv", "Cr": "_sv", "Mn": "_sv", 
-              "Fe": "_sv", "Cs": "_sv", "Rb": "_sv", "Sr": "_sv", "Er": "_3",
-              "Zr": "_sv", "Dy": "_3", "Sm": "_3", "Pa": "_s", "Tm": "_3", "Nd": "_3"}
+              "Fe": "_sv", "Cs": "_sv", "Rb": "_sv", "Sr": "_sv", "Er": "_3", "Y": "_sv",
+              "Zr": "_sv", "Dy": "_3", "Sm": "_3", "Pa": "_s", "Tm": "_3", "Nd": "_3", "Ho": "_3"}
     lasph = False
     lwave = False
     lcharg = False
@@ -78,8 +78,8 @@ def set_vasp_calculator(atom_type="molecule", dfttype="gga", do_optimization=Fal
     # geometry optimization related
     if do_optimization:
         ibrion = 2
-        potim = 0.2
-        nsw = 100
+        potim = 0.1
+        nsw = 2
     else:
         ibrion = 0
         potim = 0.0
@@ -99,9 +99,12 @@ def set_vasp_calculator(atom_type="molecule", dfttype="gga", do_optimization=Fal
 def set_lmaxmix(atoms=None):
     # lmaxmix setting
     symbols = atoms.get_chemical_symbols()
-    d_elements = ["Sc", "Mo", "Fe", "Cr", "Hf", "Zr"]
+    d_elements = ["Sc", "Ti", "V", "Cr", "Mn", "Fe", "Co", "Ni", "Cu", "Zn", 
+                  "Y", "Zr", "Nb", "Mo", "Tc", "Ru", "Rh", "Pd", "Ag", "Cd",
+                  "Hf", "Ta", "W", "Re", "Os", "Ir", "Pt", "Au", "Hg",
+                  "Rf", "Db", "Sg", "Bh", "Hs", "Mt", "Ds", "Rg", "Cn"]
     f_elements = ["La", "Ce", "Pr", "Nd", "Pm", "Sm", "Eu", "Gd", "Tb", "Dy", "Ho", "Er", "Tm", "Yb", "Lu",
-                  "Ac", "Th", "Pa", "U",  "Np", "Pu"]
+                  "Ac", "Th", "Pa", "U",  "Np", "Pu", "Am", "Cm", "Bk", "Cf", "Es", "Fm", "Md", "No", "Lr"]
 
     atoms.calc.set(lmaxmix=2)  # default
 
