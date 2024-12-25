@@ -1,0 +1,1 @@
+NH3 + surf --ads--> NH3_fcc
