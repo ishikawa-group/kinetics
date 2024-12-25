@@ -30,7 +30,7 @@ def get_past_energy(db=None, atoms=None):
         return energy, first
 
 
-def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt", verbose=False, dirname=None):
+def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt", verbose=False, dirname=""):
     """
     Calculate reaction energy for each reaction.
     """
@@ -40,6 +40,7 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
     from ase.calculators.emt import EMT
     from ase.db import connect
     from ase.visualize import view
+    from ase.io import write
     from kinetics.microkinetics.utils import get_adsorbate_type
     from kinetics.microkinetics.utils import get_number_of_reaction
     from kinetics.microkinetics.utils import get_reac_and_prod
@@ -150,7 +151,8 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
 
                     height = 1.8
                     # offset = (0.0, 0.25)  # for middle cell
-                    offset = (0.0, 0.50)  # for smallest cell
+                    # offset = (0.0, 0.50)  # for smallest cell
+                    offset = (0.33, 0.33)  # for NH3
 
                     position = adsorbate.positions[0][:2]
 
@@ -162,6 +164,8 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
                         surf_.calc = calc_surf
                         surf_.calc.directory = directory
                         set_lmaxmix(atoms=surf_)
+
+
                         surf_.get_potential_energy()
                         register(db=tmpdb, atoms=surf_)
 
@@ -182,6 +186,9 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
                     directory = "work_" + dirname + "/" + formula
                     atoms.calc.directory = directory
                     set_lmaxmix(atoms=atoms)
+
+                    write(atoms.get_chemical_formula() + ".png", atoms)
+
                     energy = atoms.get_potential_energy()
                     register(db=tmpdb, atoms=atoms, data={"energy": energy})
 
