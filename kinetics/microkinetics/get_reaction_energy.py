@@ -71,9 +71,9 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
         calc_mol  = EMT()
         calc_surf = EMT()
     elif "vasp" in calculator:
-        # dfttype = "gga"
+        dfttype = "gga"
         # dfttype = "plus_u"
-        dfttype = "meta-gga"
+        # dfttype = "meta-gga"
         calc_mol  = set_vasp_calculator(atom_type="molecule", do_optimization=True, dfttype=dfttype)
         calc_surf = set_vasp_calculator(atom_type="surface", do_optimization=True, dfttype=dfttype)
     elif "ocp" in valculator:
@@ -163,8 +163,9 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
                         directory = "work_" + dirname + "/" + formula
                         surf_.calc = calc_surf
                         surf_.calc.directory = directory
-                        set_lmaxmix(atoms=surf_)
 
+                        if dfttype == "plus_u":
+                            set_lmaxmix(atoms=surf_)
 
                         surf_.get_potential_energy()
                         register(db=tmpdb, atoms=surf_)
@@ -182,12 +183,13 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
                 if first:
                     if verbose:
                         print(f"First time to calculate {formula}", flush=True)
+                        write(atoms.get_chemical_formula() + ".png", atoms)
 
                     directory = "work_" + dirname + "/" + formula
                     atoms.calc.directory = directory
-                    set_lmaxmix(atoms=atoms)
 
-                    write(atoms.get_chemical_formula() + ".png", atoms)
+                    if dfttype == "plus_u":
+                        set_lmaxmix(atoms=surf_)
 
                     energy = atoms.get_potential_energy()
                     register(db=tmpdb, atoms=atoms, data={"energy": energy})

@@ -16,12 +16,9 @@ module load intel
 # echo "import os" > $vasp_script
 # echo "exitcode = os.system(\"mpirun -np ${NUM_PROCS} ${PRG}\")" >> $vasp_script
 
-# python -m microkinetics_toolkit
-# python orr.py --unique_id=$$ --replace_percent=75
-
 PRG="${HOME}/vasp/vasp.6.4.3/bin/vasp_std"
 export ASE_VASP_COMMAND="mpiexec.hydra -ppn ${NCORES} -n ${NPROCS} $PRG"
 export VASP_PP_PATH="${HOME}/vasp/potentials"
 
-python orr.py --unique_id=$$
+python nh3_decomp.py
 

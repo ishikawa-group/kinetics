@@ -22,7 +22,9 @@ def get_overpotential_for_cif(cif_file=None):
     repeat = [1, 1, 2]
     # repeat = [2, 2, 2]
 
-    surface = make_surface_from_cif(cif_file, indices=[0, 0, 1], repeat=repeat, vacuum=8.0)
+    vacuum = 8.0
+    surface = make_surface_from_cif(cif_file, indices=[0, 0, 1], repeat=repeat, vacuum=vacuum)
+    surface.translate([0, 0, -vacuum+0.1])
 
     # surface = remove_layers(surface, element="La", n_layers=4)
     # surface = remove_layers(surface, element="Mn", n_layers=3)
