@@ -16,14 +16,14 @@ def set_vasp_calculator(atom_type="molecule", dfttype="gga", do_optimization=Fal
         ldipol = False
         idipol = None
     elif atom_type == "surface":
-        kpt  = 3
+        kpt  = 1
         kpts = [kpt, kpt, 1]
         ismear = 1
-        lreal = True  # False will take very long time
+        lreal  = True  # False will take very long time
         ldipol = True
         idipol = 3
     elif atom_type == "solid":
-        kpt  = 2
+        kpt  = 1
         kpts = [kpt, kpt, kpt]
         ismear = 0
         lreal = False
@@ -35,20 +35,19 @@ def set_vasp_calculator(atom_type="molecule", dfttype="gga", do_optimization=Fal
 
     # common setting
     xc = "pbe"
-    encut = 300.0  # fails at 400-450?
+    encut = 400.0  # fails at 400-450?
     ediff  = 1.0e-5
-    ediffg = -5e-2
+    ediffg = -50e-2
     lorbit = 10
     algo = "Normal"
     # algo = "Fast"
     nelmin = 5
-    nelm = 40 # 40
+    nelm = 40
     npar = 10  # change according to the computational environment
     nsim = npar
     ispin = 2
     isym = 0  # switching off symmetry
     kgamma = True
-    # setups = {"K": "_pv", "Cr": "_pv", "Mn": "_pv", "Fe": "_pv", "Cs": "_sv"}
     setups = {"Ca": "_sv", "K": "_sv", "Ba": "_sv", "Cr": "_sv", "Mn": "_sv", 
               "Fe": "_sv", "Cs": "_sv", "Rb": "_sv", "Sr": "_sv", "Er": "_3", "Y": "_sv",
               "Zr": "_sv", "Dy": "_3", "Sm": "_3", "Pa": "_s", "Tm": "_3", "Nd": "_3", "Ho": "_3"}
@@ -62,6 +61,7 @@ def set_vasp_calculator(atom_type="molecule", dfttype="gga", do_optimization=Fal
     # DFT + U
     if dfttype == "plus_u":
         ldau = True
+        lasph = True
         ldautype = 2
         u_param_file = "data/u_parameter.json"
         with open(u_param_file) as f:
@@ -74,19 +74,20 @@ def set_vasp_calculator(atom_type="molecule", dfttype="gga", do_optimization=Fal
     # meta-gga
     if dfttype == "meta-gga":
         xc = "r2scan"
+        lasph = True
 
     # geometry optimization related
     if do_optimization:
         ibrion = 2
         potim = 0.1
-        nsw = 2
+        nsw = 10
     else:
         ibrion = 0
         potim = 0.0
         nsw = 0
 
     calc = Vasp(prec="Normal", xc=xc, pp="pbe", encut=encut, kpts=kpts, ismear=ismear, ediff=ediff, ediffg=ediffg,
-                ibrion=ibrion, potim=potim, nsw=nsw, algo=algo, ldipol=ldipol, idipol=idipol, setups=setups, lasph=True,
+                ibrion=ibrion, potim=potim, nsw=nsw, algo=algo, ldipol=ldipol, idipol=idipol, setups=setups, lasph=lasph,
                 ispin=ispin, npar=npar, nsim=nsim, nelmin=nelmin, nelm=nelm, lreal=lreal, lorbit=lorbit, kgamma=kgamma,
                 ldau=ldau, ldautype=ldautype, ldau_luj=ldau_luj, isym=isym,
                 lwave=lwave, lcharg=lcharg,

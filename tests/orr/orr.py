@@ -22,7 +22,9 @@ def get_overpotential_for_cif(cif_file=None):
     repeat = [1, 1, 2]
     # repeat = [2, 2, 2]
 
-    surface = make_surface_from_cif(cif_file, indices=[0, 0, 1], repeat=repeat, vacuum=8.0)
+    vacuum = 8.0
+    surface = make_surface_from_cif(cif_file, indices=[0, 0, 1], repeat=repeat, vacuum=vacuum)
+    surface.translate([0, 0, -vacuum+0.1])
 
     # surface = remove_layers(surface, element="La", n_layers=4)
     # surface = remove_layers(surface, element="Mn", n_layers=3)
@@ -39,8 +41,14 @@ def get_overpotential_for_cif(cif_file=None):
     reaction_file = "orr_alkaline2.txt"; energy_shift = [-0.32+0.75, -0.54+0.32, -0.47+0.54, -0.75+0.47]
     # reaction_file = "orr_alkaline3.txt"; energy_shift = [-0.32+0.75-4.92, -0.54+0.32, -0.47+0.54, -0.75+0.47]
 
-    deltaEs = get_reaction_energy(reaction_file=reaction_file, surface=surface, calculator="vasp",
-                                  verbose=False, dirname=unique_id)
+    # --- DFT calculation
+    try:
+        deltaEs = get_reaction_energy(reaction_file=reaction_file, surface=surface, calculator="vasp",
+                                      verbose=False, dirname=unique_id)
+    except:
+        print("DFT calculation failed for this material")
+        return None
+
     eta = get_overpotential_oer_orr(reaction_file=reaction_file, deltaEs=deltaEs, reaction_type="orr",
                                     verbose=False, energy_shift=energy_shift)
     eta = np.abs(eta)
@@ -65,4 +73,7 @@ if __name__ == "__main__":
         eta = get_overpotential_for_cif(cif_file=cif_file)
 
         basename = os.path.basename(cif_file)
-        print(f"file = {basename:26.24s}, eta = {eta:5.3f} eV", flush=True)
+        if eta is None:
+            print(f"failed for {basename}")
+        else:
+            print(f"file = {basename:26.24s}, eta = {eta:5.3f} eV", flush=True)
