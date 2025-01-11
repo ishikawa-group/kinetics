@@ -90,7 +90,7 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
                 "HN": [180, "x"], "NH": [180, "x"],
                 "H2N": [180, "x"], "NH2": [180, "x"],
                 "H3N": [180, "x"], "NH3": [180, "x"],
-               }
+                }
 
     # spin-polarized or not for adsorbed molecules
     closed_shell_molecules = ["H2",
