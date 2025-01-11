@@ -8,9 +8,9 @@ if __name__ == "__main__":
     from ase.visualize import view
     from ase.build import fcc111
 
-    vacuum = 6.0
+    vacuum = 8.0
 
-    surface = fcc111(symbol="Ni", size=(2, 2, 4), vacuum=vacuum, periodic=True)
+    surface = fcc111(symbol="Ni", size=(3, 3, 4), vacuum=vacuum, periodic=True)
 
     surface.translate([0, 0, -vacuum+0.1])
     surface = fix_lower_surface(surface)
@@ -21,4 +21,4 @@ if __name__ == "__main__":
 
     deltaEs = get_reaction_energy(reaction_file=reaction_file, surface=surface, calculator="vasp", verbose=True)
 
-    print("deltaEs:", deltaEs)
+    print("deltaEs:", np.round(np.array(deltaEs), 3))

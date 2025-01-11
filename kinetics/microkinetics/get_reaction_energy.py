@@ -83,14 +83,27 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
         raise ValueError("Choose from emt, vasp, ocp.")
 
     # rotational angle for adsorbed molecules
-    # rotation = {"HO": [180, "x"], "HO2": [180, "x"], "O2": [90, "x"]}
-    rotation = {"HO": [170, "x"], "HO2": [70, "x"], "O2": [120, "x"]}
+    # note: also input duplicated name (e.g. "HO" and "OH")
+    rotation = {"HO": [170, "x"], "OH": [170, "x"],
+                "HO2": [70, "x"], "OOH": [70, "x"], "O2H": [70, "x"],
+                "O2": [120, "x"],
+                "HN": [180, "x"], "NH": [180, "x"],
+                "H2N": [180, "x"], "NH2": [180, "x"],
+                "H3N": [180, "x"], "NH3": [180, "x"],
+               }
 
     # spin-polarized or not for adsorbed molecules
-    closed_shell_molecules = ["H2", "HO", "H2O"]
+    closed_shell_molecules = ["H2",
+                              "HO", "OH",
+                              "H2O",
+                              "N2",
+                              "NH", "HN",
+                              "NH2", "H2N",
+                              "NH3", "H3N",
+                             ]
 
-    # magnetic elements: B in ABO3 perovskite
-    magnetic_elements = ["Mn", "Fe", "Cr"]
+    # magnetic elements -- magmom up for these elements
+    magnetic_elements = ["Cr", "Mn", "Fe", "Co", "Ni"]
 
     for irxn in range(rxn_num):
         energies = {"reactant": 0.0, "product": 0.0}
@@ -152,7 +165,7 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
                     height = 1.8
                     # offset = (0.0, 0.25)  # for middle cell
                     # offset = (0.0, 0.50)  # for smallest cell
-                    offset = (0.33, 0.33)  # for NH3
+                    offset = (0.45, 0.45)  # for 3x3 Ni111
 
                     position = adsorbate.positions[0][:2]
 

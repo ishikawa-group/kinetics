@@ -12,13 +12,15 @@ def set_vasp_calculator(atom_type="molecule", dfttype="gga", do_optimization=Fal
     if atom_type == "molecule":
         kpts = [1, 1, 1]
         ismear = 0
+        sigma = 0.05
         lreal = True
         ldipol = False
         idipol = None
     elif atom_type == "surface":
-        kpt  = 1
+        kpt  = 3
         kpts = [kpt, kpt, 1]
         ismear = 1
+        sigma = 0.1
         lreal  = True  # False will take very long time
         ldipol = True
         idipol = 3
@@ -26,6 +28,7 @@ def set_vasp_calculator(atom_type="molecule", dfttype="gga", do_optimization=Fal
         kpt  = 1
         kpts = [kpt, kpt, kpt]
         ismear = 0
+        sigma = 0.2
         lreal = False
         ldipol = False
         idipol = None
@@ -80,13 +83,13 @@ def set_vasp_calculator(atom_type="molecule", dfttype="gga", do_optimization=Fal
     if do_optimization:
         ibrion = 2
         potim = 0.1
-        nsw = 10
+        nsw = 5
     else:
         ibrion = 0
         potim = 0.0
         nsw = 0
 
-    calc = Vasp(prec="Normal", xc=xc, pp="pbe", encut=encut, kpts=kpts, ismear=ismear, ediff=ediff, ediffg=ediffg,
+    calc = Vasp(prec="Normal", xc=xc, pp="pbe", encut=encut, kpts=kpts, ismear=ismear, sigma=sigma, ediff=ediff, ediffg=ediffg,
                 ibrion=ibrion, potim=potim, nsw=nsw, algo=algo, ldipol=ldipol, idipol=idipol, setups=setups, lasph=lasph,
                 ispin=ispin, npar=npar, nsim=nsim, nelmin=nelmin, nelm=nelm, lreal=lreal, lorbit=lorbit, kgamma=kgamma,
                 ldau=ldau, ldautype=ldautype, ldau_luj=ldau_luj, isym=isym,
