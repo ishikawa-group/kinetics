@@ -40,10 +40,10 @@ def set_vasp_calculator(atom_type="molecule", dfttype="gga", do_optimization=Fal
     xc = "pbe"
     encut = 400.0  # fails at 400-450?
     ediff  = 1.0e-5
-    ediffg = -50e-2
+    ediffg = -10.0e-2
     lorbit = 10
-    algo = "Normal"
-    # algo = "Fast"
+    # algo = "Normal"
+    algo = "Fast"
     nelmin = 5
     nelm = 40
     npar = 10  # change according to the computational environment
@@ -78,12 +78,13 @@ def set_vasp_calculator(atom_type="molecule", dfttype="gga", do_optimization=Fal
     if dfttype == "meta-gga":
         xc = "r2scan"
         lasph = True
+        algo = "Normal"
 
     # geometry optimization related
     if do_optimization:
         ibrion = 2
         potim = 0.1
-        nsw = 5
+        nsw = 150
     else:
         ibrion = 0
         potim = 0.0

@@ -359,9 +359,16 @@ def find_closest_atom(surf, offset=(0, 0)):
     return clothest
 
 
-def sort_atoms_by_z(atoms):
+def sort_atoms_by_z(atoms, elementwise=True):
     """
     Sort atoms by z-coordinate.
+
+    Args:
+        atoms: ASE Atoms object.
+        elementwise: Whether to sort by element-wise gruop. True or False.
+    Returns:
+        newatoms: Sorted Atoms object.
+        zcount: Element-wise list of each atoms index.
     """
     import collections
 
@@ -371,6 +378,7 @@ def sort_atoms_by_z(atoms):
     tags = atoms.get_tags()
     pbc = atoms.get_pbc()
     cell = atoms.get_cell()
+    natoms = len(atoms)
 
     dtype = [("idx", int), ("z", float)]
     #
@@ -388,12 +396,33 @@ def sort_atoms_by_z(atoms):
     iatm = 0
     newatoms = Atoms()
     zcount = []
-    for inum in num_elem:
+
+    if elementwise:
+        for inum in num_elem:
+            zlist = np.array([], dtype=dtype)
+            for idx in range(inum):
+                tmp = np.array([(iatm, atoms[iatm].z)], dtype=dtype)
+                zlist = np.append(zlist, tmp)
+                iatm += 1
+
+            zlist = np.sort(zlist, order="z")
+
+            for i in zlist:
+                idx = i[0]
+                newatoms.append(atoms[idx])
+
+            tmp = np.array([], dtype=float)
+            for val in zlist:
+                tmp = np.append(tmp, round(val[1], 2))
+            tmp = collections.Counter(tmp)
+            zcount.append(list(tmp.values()))
+
+    else:
         zlist = np.array([], dtype=dtype)
-        for idx in range(inum):
+        for idx in range(natoms):
             tmp = np.array([(iatm, atoms[iatm].z)], dtype=dtype)
             zlist = np.append(zlist, tmp)
-            iatm = iatm + 1
+            iatm += 1
 
         zlist = np.sort(zlist, order="z")
 
@@ -401,11 +430,6 @@ def sort_atoms_by_z(atoms):
             idx = i[0]
             newatoms.append(atoms[idx])
 
-        tmp = np.array([], dtype=float)
-        for val in zlist:
-            tmp = np.append(tmp, round(val[1], 2))
-        tmp = collections.Counter(tmp)
-        zcount.append(list(tmp.values()))
     #
     # restore tag, pbc, cell
     #
@@ -758,14 +782,14 @@ def set_tags_by_z(atoms):
     return newatoms
 
 
-def remove_layers(atoms=None, element=None, n_layers=1):
+def remove_layers(atoms=None, element=None, layers_to_remove=1):
     """
     Remove layers of symbol at high-in-z.
 
     Args:
         atoms (Atoms): Atoms object
         element (str): Element symbol
-        n_layers(int): Number of layers (of specified element) to remove
+        layers_to_remove(int): Number of layers (of specified element) to remove, from top of the surface.
     """
     pbc  = atoms.get_pbc()
     cell = atoms.get_cell()
@@ -782,7 +806,7 @@ def remove_layers(atoms=None, element=None, n_layers=1):
     maxtag = max(list(tags[cond]))
 
     for i, atom in enumerate(atoms_copy):
-        if atom.tag >= maxtag - n_layers + 1 and atom.symbol == element:
+        if atom.tag >= maxtag - layers_to_remove + 1 and atom.symbol == element:
             # remove this atom
             pass
         else:
@@ -803,6 +827,7 @@ def fix_lower_surface(atoms, adjust_layer=None):
         adjust_layer (list): List of element-wise layers to adjust fixing. Positive means more layers are fixed.
     """
     from ase.constraints import FixAtoms
+    from ase.visualize import view
 
     newatoms = atoms.copy()
     newatoms = sort_atoms_by(newatoms, xyz="z")  # sort

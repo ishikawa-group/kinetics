@@ -46,6 +46,9 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
     from kinetics.microkinetics.utils import get_reac_and_prod
     from kinetics.microkinetics.vasp import set_vasp_calculator
     from kinetics.microkinetics.vasp import set_lmaxmix
+    from logging import getLogger
+
+    logger = getLogger(__name__)
 
     r_ads, r_site, r_coef, p_ads, p_site, p_coef = get_reac_and_prod(reaction_file)
     rxn_num = get_number_of_reaction(reaction_file)
@@ -55,7 +58,7 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
     if os.path.exists(database_file):
         database = connect(database_file)
     else:
-        print(f"{database_file} not found.")
+        logger.info(f"{database_file} not found.")
         raise FileNotFoundError
 
     # temporary database
@@ -67,7 +70,7 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
 
     # define calculator for molecules and surfaces separately
     if "emt" in calculator:
-        print("EMT calculator is used.")
+        logger.info("EMT calculator is used.")
         calc_mol  = EMT()
         calc_surf = EMT()
     elif "vasp" in calculator:
@@ -105,6 +108,23 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
     # magnetic elements -- magmom up for these elements
     magnetic_elements = ["Cr", "Mn", "Fe", "Co", "Ni"]
 
+    # zero-point energy (in cm^-1, NIST webbook, experimental)
+    add_zpe_here = False
+    zpe = {}
+    cm_to_eV = 1.23984e-4
+    zpe_cm = {"H2": 2179.307,
+              "HO": 1850.688, "OH": 1850.688,
+              "H2O": 4504.0,
+              "HO2": 2962.8, "OOH": 2962.8, "O2H": 2962.8,
+              "O2": 787.3797,
+              "N2": 1175.778,
+              "HN": 1623.563, "NH": 1623.563,
+              "H2N": 4008.9, "NH2": 4008.9,
+              "H3N": 7214.5, "NH3": 7214.5,
+             }
+    for key, value in zpe_cm.items():
+        zpe.update({key: value*cm_to_eV})
+
     for irxn in range(rxn_num):
         energies = {"reactant": 0.0, "product": 0.0}
 
@@ -121,7 +141,7 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
             elif side == "product":
                 mols, sites, coefs = p_ads[irxn], p_site[irxn], p_coef[irxn]
             else:
-                print("some error")
+                logger.info("some error")
                 quit()
 
             E = 0.0
@@ -133,7 +153,7 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
                     try:
                         id_ = database.get(name=mol[0]).id
                     except KeyError:
-                        print(f"{mol[0]} not found in {database_file}", flush=True)
+                        logger.info(f"{mol[0]} not found in {database_file}")
                         quit()
                     else:
                         atoms = database.get_atoms(id=id_)
@@ -162,10 +182,12 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
                     if tmp in rotation:
                         adsorbate.rotate(*rotation[tmp])
 
-                    height = 1.8
+                    # height = 1.8
                     # offset = (0.0, 0.25)  # for middle cell
                     # offset = (0.0, 0.50)  # for smallest cell
-                    offset = (0.45, 0.45)  # for 3x3 Ni111
+                    # offset = (0.45, 0.45)  # for 3x3 Ni111
+                    # offset = (0.0, 0.0); height = 1.2  # CaMnO3
+                    offset = (0.1, 0.4); height = 1.8
 
                     position = adsorbate.positions[0][:2]
 
@@ -187,7 +209,7 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
                     add_adsorbate(atoms, adsorbate, offset=offset, position=position, height=height)
                     atoms.calc = calc_surf
                 else:
-                    print("some error")
+                    logger.info("some error")
                     quit()
 
                 # setting atoms done
@@ -195,17 +217,23 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
                 formula = atoms.get_chemical_formula()
                 if first:
                     if verbose:
-                        print(f"First time to calculate {formula}", flush=True)
+                        logger.info(f"First time to calculate {formula}")
                         write(atoms.get_chemical_formula() + ".png", atoms)
 
                     directory = "work_" + dirname + "/" + formula
                     atoms.calc.directory = directory
 
                     if dfttype == "plus_u":
-                        set_lmaxmix(atoms=surf_)
+                        set_lmaxmix(atoms=atoms)
 
                     energy = atoms.get_potential_energy()
                     register(db=tmpdb, atoms=atoms, data={"energy": energy})
+
+                # add zpe for gaseous molecule
+                if add_zpe_here:
+                    if ads_type == "gaseous" and mol[0] != "surf":
+                        zpe_value = zpe[mol[0]]
+                        energy += zpe_value
 
                 E += coefs[imol]*energy
 
@@ -214,4 +242,9 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
         deltaE  = energies["product"] - energies["reactant"]
         deltaEs = np.append(deltaEs, deltaE)
 
+    # loop over reaction - done
+    np.printoptions(precision=3)
+    logger.info(f"deltaEs = {deltaEs}")
+
     return deltaEs
+

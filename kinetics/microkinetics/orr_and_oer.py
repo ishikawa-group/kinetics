@@ -2,9 +2,16 @@ def get_overpotential_oer_orr(reaction_file, deltaEs, T=298.15, reaction_type="o
     """
     Calculate overpotential for OER or ORR.
     """
+    import sys
+    sys.path.append("../../")
     import numpy as np
     import matplotlib.pyplot as plt
-    from microkinetics_toolkit.utils import get_number_of_reaction
+    from kinetics.microkinetics.utils import get_number_of_reaction
+    from logging import getLogger
+
+    logger = getLogger(__name__)
+    #np.set_printoptions(precision=3)
+    np.set_printoptions(formatter={"float": "{: 0.3f}".format})
 
     rxn_num = get_number_of_reaction(reaction_file)
 
@@ -12,12 +19,14 @@ def get_overpotential_oer_orr(reaction_file, deltaEs, T=298.15, reaction_type="o
     S = {"H2": 0.0, "H2O": 0.0, "O2": 0.0}
 
     # ZPE in eV
-    zpe["H2"] = 0.27
-    zpe["H2O"] = 0.56
-    zpe["OHads"] = 0.36
-    zpe["Oads"] = 0.07
-    zpe["OOHads"] = 0.40
-    zpe["O2"] = 0.05*2
+    add_zpe_here = True
+    if add_zpe_here:
+        zpe["H2"] = 0.27
+        zpe["H2O"] = 0.56
+        zpe["OHads"] = 0.36
+        zpe["Oads"] = 0.07
+        zpe["OOHads"] = 0.40
+        zpe["O2"] = 0.05*2
 
     # entropy in eV/K
     S["H2"] = 0.41/T
@@ -52,7 +61,7 @@ def get_overpotential_oer_orr(reaction_file, deltaEs, T=298.15, reaction_type="o
         deltaZPEs[3] = zpe["H2O"] - 0.5*zpe["H2"] - zpe["OHads"]
 
     else:
-        print("some error")
+        logger.info("some error")
         quit()
 
     deltaEs = np.array(deltaEs)
@@ -63,30 +72,31 @@ def get_overpotential_oer_orr(reaction_file, deltaEs, T=298.15, reaction_type="o
         deltaGs += np.array(energy_shift)
 
     if verbose:
-        print(f"max of deltaGs = {np.max(deltaGs):5.3f} eV")
+        logger.info(f"max of deltaGs = {np.max(deltaGs):5.3f} eV")
 
-    if reaction_type == "oer":
-        eta = np.max(deltaGs) - 1.23
-    elif reaction_type == "orr":
-        eta = 1.23 - np.max(deltaGs)
-        eta = np.abs(eta)  # necessary?
-    else:
-        print("some error")
-        quit()
+    # ORR
+    if reaction_type == "orr":
+        # phi = 1.165  # equilibrium potential, 4.661/4, from Wang's paper
+        phi = 1.0288
+        deltaGs_sum = [0.0,
+                       deltaGs[0], 
+                       deltaGs[0] + deltaGs[1],
+                       deltaGs[0] + deltaGs[1] + deltaGs[2],
+                       deltaGs[0] + deltaGs[1] + deltaGs[2] + deltaGs[3]]
 
-    np.set_printoptions(precision=3)
-
-    # make deltaG relative
-    deltaGs_rel = deltaGs - deltaGs[0]
-    deltaGs_rel = np.append(deltaGs_rel, 0)
-
+        deltaGs_eq = [deltaGs_sum[0], deltaGs_sum[1] + phi, deltaGs_sum[2] + 2*phi, deltaGs_sum[3] + 3*phi, deltaGs_sum[4] + 4*phi]
+        diffG = [deltaGs_eq[1] - deltaGs_eq[0], deltaGs_eq[2] - deltaGs_eq[1], deltaGs_eq[3] - deltaGs_eq[2], deltaGs_eq[4] - deltaGs_eq[3]]
+        eta = np.max(diffG)
+             
     if verbose:
-        print(f"deltaGs = {deltaGs}")
-        print(f"deltaGs_rel = {deltaGs_rel}")
+        logger.info(f"deltaGs = {np.array(deltaGs)}")
+        logger.info(f"deltaGs_eq = {np.array(deltaGs_eq)}")
+        logger.info(f"diffG = {np.array(diffG)}")
+        eta = np.max(diffG)
 
     # plot
     fig_name = "test.png"
-    plt.plot(deltaGs_rel, "o")
+    plt.plot(deltaGs_eq, "o")
     plt.savefig(fig_name)
 
     return eta

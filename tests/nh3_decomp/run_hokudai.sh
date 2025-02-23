@@ -1,7 +1,7 @@
 #!/bin/sh 
 #------ pjsub option --------#
 #PJM -L rscgrp=n22240a
-#PJM -L node=2
+#PJM -L node=4
 #PJM -L elapse=48:00:00 
 #PJM -g n22240
 #PJM -j
