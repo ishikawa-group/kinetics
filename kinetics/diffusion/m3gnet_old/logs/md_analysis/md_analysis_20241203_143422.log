@@ -1,0 +1,9 @@
+2024-12-03 14:34:22,291 - INFO - Analyzing trajectory at 600K
+2024-12-03 14:34:22,291 - INFO - Number of H atoms: 2
+2024-12-03 14:34:22,291 - INFO - Position array shape: (101, 2, 3)
+2024-12-03 14:34:22,291 - INFO - Number of analysis windows: 1
+2024-12-03 14:34:24,352 - INFO - Results for 600K:
+2024-12-03 14:34:24,353 - INFO - MSD: 152.4845 Å²/ps
+2024-12-03 14:34:24,353 - INFO - Diffusion coefficient: 2.54e-03 ± 0.00e+00 cm²/s
+2024-12-03 14:34:24,353 - INFO - Conductivity: 2.67e+01 S/cm
+2024-12-03 14:34:24,356 - INFO - Results saved to logs/md_trajectories/Ba8Zr8O24_H2/md_analysis_results.csv

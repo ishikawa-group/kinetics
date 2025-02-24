@@ -1,6 +1,5 @@
 import sys
 sys.path.append("../")
-
 from ase.io import read
 from kinetics.bandgap import get_bandgap
 

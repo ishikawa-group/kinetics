@@ -1,31 +1,50 @@
 from mp_api.client import MPRester
 import os
 
+os.environ["MPRESTER_MUTE_PROGRESS_BARS"] = "true"
 MY_API_KEY = os.environ["MAPI"]
 
-#Get cif files of ABO3 systems
-# Only for stable insulators with band_gap > 2 and spacegroup = Pm-3m
-band_gap_min = 2.0
-band_gap_max = None
-sg_symb = "Pm-3m"
-_is_stable = True
-_is_metal = False
+# Get cif files of ABO3 systems
+name = "**O3"
+spacegroup = "Pm-3m"   # spacegroup = Pm-3m
+_is_stable = None
+_is_metal  = None  # a lot of missing data? ... will be skiped
 
 # define physical properties/infos you want to obtain
-properties = ['formula_pretty','material_id','structure','symmetry','is_metal','band_gap']
-name = "**O3"
-with MPRester( MY_API_KEY ) as mpr:
-    results = mpr.materials.summary.search(formula=name, band_gap=(band_gap_min, band_gap_max), spacegroup_symbol = sg_symb, is_stable=_is_stable, is_metal=_is_metal, fields=properties)
+properties = ["formula_pretty", "material_id", "structure", "symmetry", "is_metal", "band_gap"]
 
-#Output
-path_output_dir = "./ABO3_cif/"
-if not os.path.exists(path_output_dir):
-    os.makedirs(path_output_dir)
+with MPRester(MY_API_KEY) as mpr:
+    results = mpr.materials.summary.search(formula=name, spacegroup_symbol=spacegroup, 
+                                           is_stable=_is_stable, is_metal=_is_metal, fields=properties)
 
-for mat in results:
-    print(mat.material_id, mat.formula_pretty)
-    print(mat.symmetry.symbol)
-    print(mat.is_metal, mat.band_gap)
+# Output
 
-    ofile = path_output_dir+mat.material_id+"_"+mat.formula_pretty+".cif"
-    mat.structure.to(filename = ofile)
+def skip_this(material, skip_elements):
+    skip = False
+    for element in skip_elements:
+        if element in material.formula_pretty:
+            skip = True
+            break
+
+    return skip
+
+skip_elements = ["Ho", "Hf", "Pa", "Th", "Ac", "Er", "Lu", "Tm", "Pr", "Sm", "Dy", "Pm", "Eu", "U", "Pu"]
+
+output_dir = "ABO3_cif"
+if not os.path.exists(output_dir):
+    os.makedirs(output_dir)
+
+after = []
+for material in results:
+    if skip_this(material, skip_elements):
+        continue
+    else:
+        after.append(material)
+
+for material in after:
+    filename = material.material_id + "_"+ material.formula_pretty + ".cif"
+    filename = os.path.join(output_dir, filename)
+    material.structure.to(filename=filename)
+
+print(f"{len(results)} materials are found, and {len(after)} materials are saved.")
+
