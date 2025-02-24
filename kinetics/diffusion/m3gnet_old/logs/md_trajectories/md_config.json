@@ -1,0 +1,34 @@
+{
+    "data_config": {
+        "structures_dir": "/Users/ishi/kinetics/kinetics/diffusion/m3gnet/data/structures",
+        "file_path": "/Users/ishi/kinetics/kinetics/diffusion/m3gnet/data/data_list.csv",
+        "cutoff": 4.0,
+        "batch_size": 16,
+        "split_ratio": [
+            0.7,
+            0.1,
+            0.2
+        ],
+        "random_state": 42
+    },
+    "md_params": {
+        "model_name": "M3GNet-MP-2021.2.8-PES",
+        "time_step": 1.0,
+        "friction": 0.02,
+        "total_steps": 5000,
+        "output_interval": 50
+    },
+    "simulation": {
+        "structure_file": "data/Ba8Zr8O24.vasp",
+        "n_protons": 2,
+        "temperatures": [
+            600
+        ]
+    },
+    "results": {
+        "structure_file": "data/Ba8Zr8O24.vasp",
+        "trajectories": {
+            "600": "/Users/ishi/kinetics/kinetics/diffusion/m3gnet/logs/md_trajectories/Ba8Zr8O24_H2/T_600K/MD_600K.traj"
+        }
+    }
+}

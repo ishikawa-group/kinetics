@@ -1,0 +1,19 @@
+2024-12-03 14:08:49,666 - INFO - Working directory: /Users/ishi/kinetics/kinetics/diffusion/m3gnet/logs/md_trajectories
+2024-12-03 14:08:49,666 - INFO - Structures directory: /Users/ishi/kinetics/kinetics/diffusion/m3gnet/data/structures
+2024-12-03 14:08:49,666 - INFO - Using cached local file at /Users/ishi/.cache/matgl/M3GNet-MP-2021.2.8-PES/model.pt...
+2024-12-03 14:08:49,666 - INFO - Using cached local file at /Users/ishi/.cache/matgl/M3GNet-MP-2021.2.8-PES/state.pt...
+2024-12-03 14:08:49,666 - INFO - Using cached local file at /Users/ishi/.cache/matgl/M3GNet-MP-2021.2.8-PES/model.json...
+2024-12-03 14:08:50,095 - INFO - Loaded potential model: M3GNet-MP-2021.2.8-PES
+2024-12-03 14:08:50,100 - INFO - Added proton 1/2:
+2024-12-03 14:08:50,100 - INFO -   Near O atom: 16
+2024-12-03 14:08:50,100 - INFO -   Position: [2.096      2.78896465 7.69103535]
+2024-12-03 14:08:50,100 - INFO -   OH distance: 0.980 Å
+2024-12-03 14:08:50,102 - INFO - Added proton 2/2:
+2024-12-03 14:08:50,102 - INFO -   Near O atom: 17
+2024-12-03 14:08:50,103 - INFO -   Position: [2.096      2.78896465 4.88496465]
+2024-12-03 14:08:50,103 - INFO -   OH distance: 0.980 Å
+2024-12-03 14:08:50,103 - INFO - Successfully added 2 protons
+2024-12-03 14:08:50,103 - INFO - Final composition: H2Ba8O24Zr8
+2024-12-03 14:08:50,103 - INFO - Prepared hydrated structure: H2Ba8O24Zr8
+2024-12-03 14:08:50,104 - INFO - Starting MD at 600K
+2024-12-03 14:08:50,104 - INFO - Total steps: 10000, Output interval: 50

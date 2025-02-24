@@ -1,0 +1,72 @@
+2024-12-10 23:18:02,940 - INFO - Loading BaZrO3 structure...
+2024-12-10 23:18:04,693 - INFO - Successfully loaded BaZrO3 structure
+2024-12-10 23:18:04,693 - INFO - Loading potential model...
+2024-12-10 23:18:04,694 - INFO - Using cached local file at /Users/ishi/.cache/matgl/M3GNet-MP-2021.2.8-PES/model.pt...
+2024-12-10 23:18:04,694 - INFO - Using cached local file at /Users/ishi/.cache/matgl/M3GNet-MP-2021.2.8-PES/state.pt...
+2024-12-10 23:18:04,694 - INFO - Using cached local file at /Users/ishi/.cache/matgl/M3GNet-MP-2021.2.8-PES/model.json...
+2024-12-10 23:18:05,016 - INFO - Loaded pretrained M3GNet model
+2024-12-10 23:18:05,024 - INFO - Added proton 1/1:
+2024-12-10 23:18:05,024 - INFO -   Near O atom: 2
+2024-12-10 23:18:05,024 - INFO -   Position: [1.70611025 3.4122205  1.70611025]
+2024-12-10 23:18:05,024 - INFO -   OH distance: 0.980 Å
+2024-12-10 23:18:05,024 - INFO - Successfully added 1 protons
+2024-12-10 23:18:05,024 - INFO - Final composition: HBaO3Zr
+2024-12-10 23:18:05,025 - INFO - 
+Starting simulation at 600K...
+2024-12-10 23:18:05,112 - INFO - Running MD at 600K...
+2024-12-10 23:18:05,463 - INFO - Temperature 600K - Step 0/1000
+2024-12-10 23:18:18,510 - INFO - Temperature 600K - Step 100/1000
+2024-12-10 23:34:12,244 - INFO - Loading BaZrO3 structure...
+2024-12-10 23:34:13,643 - INFO - Successfully loaded BaZrO3 structure
+2024-12-10 23:34:13,644 - INFO - Loading potential model...
+2024-12-10 23:34:13,644 - INFO - Using cached local file at /Users/ishi/.cache/matgl/M3GNet-MP-2021.2.8-PES/model.pt...
+2024-12-10 23:34:13,644 - INFO - Using cached local file at /Users/ishi/.cache/matgl/M3GNet-MP-2021.2.8-PES/state.pt...
+2024-12-10 23:34:13,644 - INFO - Using cached local file at /Users/ishi/.cache/matgl/M3GNet-MP-2021.2.8-PES/model.json...
+2024-12-10 23:34:13,807 - INFO - Loaded pretrained M3GNet model
+2024-12-10 23:34:13,809 - INFO - Added proton 1/1:
+2024-12-10 23:34:13,809 - INFO -   Near O atom: 2
+2024-12-10 23:34:13,810 - INFO -   Position: [1.70611025 3.4122205  1.70611025]
+2024-12-10 23:34:13,810 - INFO -   OH distance: 0.980 Å
+2024-12-10 23:34:13,810 - INFO - Successfully added 1 protons
+2024-12-10 23:34:13,810 - INFO - Final composition: HBaO3Zr
+2024-12-10 23:34:13,811 - INFO - 
+Starting simulation at 600K...
+2024-12-10 23:34:13,812 - INFO - Running MD at 600K...
+2024-12-10 23:34:13,970 - INFO - Temperature 600K - Step 0/1000
+2024-12-10 23:34:14,315 - INFO - Temperature 600K - Step 10/1000
+2024-12-10 23:34:14,615 - INFO - Temperature 600K - Step 20/1000
+2024-12-10 23:34:14,948 - INFO - Temperature 600K - Step 30/1000
+2024-12-10 23:34:15,302 - INFO - Temperature 600K - Step 40/1000
+2024-12-10 23:34:15,760 - INFO - Temperature 600K - Step 50/1000
+2024-12-10 23:34:16,481 - INFO - Temperature 600K - Step 60/1000
+2024-12-10 23:34:17,103 - INFO - Temperature 600K - Step 70/1000
+2024-12-10 23:34:17,668 - INFO - Temperature 600K - Step 80/1000
+2024-12-10 23:34:18,336 - INFO - Temperature 600K - Step 90/1000
+2024-12-10 23:34:18,922 - INFO - Temperature 600K - Step 100/1000
+2024-12-10 23:34:19,799 - INFO - Temperature 600K - Step 110/1000
+2024-12-10 23:34:20,931 - INFO - Temperature 600K - Step 120/1000
+2024-12-10 23:34:27,968 - INFO - Temperature 600K - Step 130/1000
+2024-12-10 23:35:40,006 - INFO - Loading BaZrO3 structure...
+2024-12-10 23:35:42,486 - INFO - Successfully loaded BaZrO3 structure
+2024-12-10 23:35:42,486 - INFO - Loading potential model...
+2024-12-10 23:35:42,487 - INFO - Using cached local file at /Users/ishi/.cache/matgl/M3GNet-MP-2021.2.8-PES/model.pt...
+2024-12-10 23:35:42,487 - INFO - Using cached local file at /Users/ishi/.cache/matgl/M3GNet-MP-2021.2.8-PES/state.pt...
+2024-12-10 23:35:42,487 - INFO - Using cached local file at /Users/ishi/.cache/matgl/M3GNet-MP-2021.2.8-PES/model.json...
+2024-12-10 23:35:42,640 - INFO - Loaded pretrained M3GNet model
+2024-12-10 23:35:42,642 - INFO - Added proton 1/1:
+2024-12-10 23:35:42,642 - INFO -   Near O atom: 2
+2024-12-10 23:35:42,642 - INFO -   Position: [1.70611025 3.4122205  1.70611025]
+2024-12-10 23:35:42,642 - INFO -   OH distance: 0.980 Å
+2024-12-10 23:35:42,643 - INFO - Successfully added 1 protons
+2024-12-10 23:35:42,643 - INFO - Final composition: HBaO3Zr
+2024-12-10 23:35:42,644 - INFO - 
+Starting simulation at 600K...
+2024-12-10 23:35:42,644 - INFO - Running MD at 600K...
+2024-12-10 23:35:42,800 - INFO - Temperature 600K - Step 0/1000
+2024-12-10 23:35:43,135 - INFO - Temperature 600K - Step 10/1000
+2024-12-10 23:35:43,508 - INFO - Temperature 600K - Step 20/1000
+2024-12-10 23:35:44,254 - INFO - Temperature 600K - Step 30/1000
+2024-12-10 23:35:46,375 - INFO - Temperature 600K - Step 40/1000
+2024-12-10 23:35:50,813 - INFO - Temperature 600K - Step 50/1000
+2024-12-10 23:36:03,397 - INFO - Temperature 600K - Step 60/1000
+2024-12-10 23:36:51,447 - INFO - Temperature 600K - Step 70/1000

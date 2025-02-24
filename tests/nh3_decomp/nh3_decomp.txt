@@ -1,0 +1,6 @@
+NH3 + surf --ads--> NH3_bcc
+NH3_bcc + surf --ads--> NH2_bcc + H_bcc
+NH2_bcc + surf --ads--> NH_bcc + H_bcc
+NH_bcc + surf --ads--> N_bcc + H_bcc
+2*N_bcc --des--> N2 + 2*surf
+2*H_bcc --des--> H2 + 2*surf
