@@ -69,7 +69,7 @@ def get_overpotential_for_cif(cif_file=None, dirname=None):
 
     # --- DFT calculation
     calculator = "vasp"
-    dfttype = "plus_u"  # ( "gga" | "plus_u" | "meta_gga" )
+    dfttype = "gga"  # ( "gga" | "plus_u" | "meta_gga" )
     deltaEs = get_reaction_energy(reaction_file=reaction_file, surface=surface, calculator=calculator, dfttype=dfttype, verbose=True, dirname=dirname)
     eta = get_overpotential_oer_orr(reaction_file=reaction_file, deltaEs=deltaEs, reaction_type="orr", verbose=True, energy_shift=energy_shift)
     eta = np.abs(eta)
@@ -129,7 +129,10 @@ if __name__ == "__main__":
             if not os.path.isfile(cif_file):
                 logger.info(f"Could not found file: {cif_file}")
 
-            eta = get_overpotential_for_cif(cif_file=cif_file, dirname=dirname)
+            try:
+                eta = get_overpotential_for_cif(cif_file=cif_file, dirname=dirname)
+            except:
+                print("Some error in overpotential calculation")
 
             basename = os.path.basename(cif_file)
             if eta is None:
