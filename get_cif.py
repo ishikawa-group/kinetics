@@ -47,7 +47,7 @@ if not os.path.exists(output_dir):
 after = []
 for material in results:
     # if skip_this(material, skip_elements):
-    if include_this(material, include_elements):
+    if not include_this(material, include_elements):
         continue
     else:
         after.append(material)
