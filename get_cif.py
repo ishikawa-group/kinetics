@@ -19,6 +19,15 @@ with MPRester(MY_API_KEY) as mpr:
 
 # Output
 
+def include_this(material, include_elements):
+    include = False
+    for element in include_elements:
+        if element in material.formula_pretty:
+            include = True
+            break
+
+    return include
+
 def skip_this(material, skip_elements):
     skip = False
     for element in skip_elements:
@@ -29,6 +38,7 @@ def skip_this(material, skip_elements):
     return skip
 
 skip_elements = ["Ho", "Hf", "Pa", "Th", "Ac", "Er", "Lu", "Tm", "Pr", "Sm", "Dy", "Pm", "Eu", "U", "Pu"]
+include_elements = ["Mn"]
 
 output_dir = "ABO3_cif"
 if not os.path.exists(output_dir):
@@ -36,7 +46,8 @@ if not os.path.exists(output_dir):
 
 after = []
 for material in results:
-    if skip_this(material, skip_elements):
+    # if skip_this(material, skip_elements):
+    if include_this(material, include_elements):
         continue
     else:
         after.append(material)

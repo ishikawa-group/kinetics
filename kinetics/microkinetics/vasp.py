@@ -40,7 +40,7 @@ def set_vasp_calculator(atom_type="molecule", dfttype="gga", do_optimization=Fal
     xc = "pbe"
     encut = 450.0  # fails at 400-450?
     ediff  = 1.0e-4
-    ediffg = -50.0e-2
+    ediffg = -40.0e-2
     lorbit = 10
     algo = "Normal"
     # algo = "Fast"
@@ -87,7 +87,7 @@ def set_vasp_calculator(atom_type="molecule", dfttype="gga", do_optimization=Fal
     if do_optimization:
         ibrion = 2
         potim = 0.1
-        nsw = 80
+        nsw = 1
     else:
         ibrion = 0
         potim = 0.0

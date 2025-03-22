@@ -1,0 +1,4 @@
+2025-03-22 11:17:50,809 INFO __main__: file = mp-1001571_CaFeO3.cif     , eta = 1.012 eV
+2025-03-22 11:34:54,723 INFO __main__: file = mp-1016820_MgSnO3.cif     , eta = 1.375 eV
+2025-03-22 12:01:30,600 INFO __main__: file = mp-1016821_BaSiO3.cif     , eta = 2.663 eV
+    eta = get_overpotential_for_cif(cif_file=cif_file, dirname=dirname)
