@@ -1,8 +1,35 @@
-def get_overpotential_for_cif(cif_file=None):
+def add_data_to_jsonfile(jsonfile, data):
+    """
+    add data to database
+    """
+    import json
+
+    if not os.path.exists(jsonfile):
+        with open(jsonfile, "w") as f:
+            json.dump([], f)
+
+    with open(jsonfile, "r") as f:
+        datum = json.load(f)
+
+        # remove "doing" record as calculation is done
+        for i in range(len(datum)):
+            if datum[i]["status"] == "doing":
+                datum.pop(i)
+                break
+
+        datum.append(data)
+
+    with open(jsonfile, "w") as f:
+        json.dump(datum, f, indent=4)
+
+
+def get_overpotential_for_cif(cif_file=None, dirname=None):
     import sys
     sys.path.append("../../")
 
     import numpy as np
+    import json
+    import uuid
     import argparse
     from kinetics.microkinetics.utils import make_surface_from_cif
     from kinetics.microkinetics.utils import remove_layers
@@ -13,41 +40,48 @@ def get_overpotential_for_cif(cif_file=None):
     from kinetics.microkinetics.orr_and_oer import get_overpotential_oer_orr 
     from ase.visualize import view
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--unique_id", default="0")
-    parser.add_argument("--replace_percent", default=0)
-    args = parser.parse_args()
-    unique_id = args.unique_id
-    replace_percent = int(args.replace_percent)
+    # replace_percent = 0
 
-    repeat = [2, 1, 1]
+    repeat = [1, 1, 2]
 
-    vacuum = 8.0
+    vacuum = 6.4
     surface = make_surface_from_cif(cif_file, indices=[0, 0, 1], repeat=repeat, vacuum=vacuum)
 
-    # surface, count = sort_atoms_by_z(surface)
-    # lowest_z = surface[0].position[2]
-    # surface.translate([0, 0, -lowest_z + 0.5])
+    surface, count = sort_atoms_by_z(surface)
+    lowest_z = surface[0].position[2]
+    surface.translate([0, 0, -lowest_z + 0.1])
 
     # surface = remove_layers(surface, element="Ca", layers_to_remove=1)
     # surface = remove_layers(surface, element="O", layers_to_remove=1)
     # surface = replace_element(surface, from_element="Mn", to_element="Cr", percent=100)
+
+    surface = remove_layers(surface, element="O", layers_to_remove=1)  # remove O
+    surface = remove_layers(surface, layers_to_remove=1)  # remove A cation
+
     surface = fix_lower_surface(surface)
 
     energy_shift = [0]*4
 
     # reaction_file = "orr_alkaline.txt"  # not really good on first step
     # reaction_file = "orr_alkaline2.txt"; energy_shift = [-0.32+0.75, -0.54+0.32, -0.47+0.54, -0.75+0.47]
-    reaction_file = "orr_alkaline3.txt"; energy_shift = [-0.32+0.75-4.92, -0.54+0.32, -0.47+0.54, -0.75+0.47]
-    # reaction_file = "orr_alkaline3.txt"; energy_shift = [-4.92, 0, 0, 0]
+    # reaction_file = "orr_alkaline3.txt"; energy_shift = [-0.32+0.75-4.92, -0.54+0.32, -0.47+0.54, -0.75+0.47]
+    reaction_file = "orr_alkaline3.txt"; energy_shift = [-4.92, 0, 0, 0]
 
     # --- DFT calculation
-    deltaEs = get_reaction_energy(reaction_file=reaction_file, surface=surface, calculator="vasp",
-                                  verbose=True, dirname=unique_id)
-
-    eta = get_overpotential_oer_orr(reaction_file=reaction_file, deltaEs=deltaEs, reaction_type="orr",
-                                    verbose=True, energy_shift=energy_shift)
+    calculator = "vasp"
+    dfttype = "plus_u"  # ( "gga" | "plus_u" | "meta_gga" )
+    deltaEs = get_reaction_energy(reaction_file=reaction_file, surface=surface, calculator=calculator, dfttype=dfttype, verbose=True, dirname=dirname)
+    eta = get_overpotential_oer_orr(reaction_file=reaction_file, deltaEs=deltaEs, reaction_type="orr", verbose=True, energy_shift=energy_shift)
     eta = np.abs(eta)
+
+    jsonfile = "surf.json"
+
+    atomic_numbers = surface.get_atomic_numbers()
+    formula = surface.get_chemical_formula()
+    unique_id = uuid.uuid4()
+    data = {"unique_id": str(unique_id), "chemical_formula": formula, "atomic_numbers": atomic_numbers.tolist(), "overpotential": eta, "status": "done"}
+
+    add_data_to_jsonfile(data=data, jsonfile=jsonfile)
 
     return eta
 
@@ -55,31 +89,47 @@ def get_overpotential_for_cif(cif_file=None):
 if __name__ == "__main__":
     import os
     import glob
+    from ase.io import read
     from logging import basicConfig, getLogger, INFO
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--dirname", type=str, default="0")
+    parser.add_argument("--start", type=int, default=0)
+    parser.add_argument("--end", type=int, default=None)
+    args = parser.parse_args()
+
+    dirname = args.dirname
+    start = args.start
+    end = args.end
 
     basicConfig(level=INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     logger = getLogger(__name__)
 
-    loop_over_directory = False
+    loop_over_directory = True
 
     logger.info("Start calculation")
 
     if loop_over_directory:
-        #
-        # Loop over files in the directory
-        #
-
-        # directory = "/ABO3_cif_large/"
-        directory = "/sugawara/"
+        directory = "/ABO3_cif_large/"
+        # directory = "/ABO3_cif/"
+        # directory = "/sugawara/"
 
         cif_files = glob.glob(os.getcwd() + directory + "*.cif")
-        logger.info(f"Found {len(cif_files)} files.")
+        cif_files = sorted(cif_files)
+
+        if end is None:
+            end = len(cif_files)
+
+        logger.info(f"Found {len(cif_files)} files, and do calculation from {start} to {end}.")
+
+        cif_files = cif_files[start:end]
 
         for cif_file in cif_files:
             if not os.path.isfile(cif_file):
                 logger.info(f"Could not found file: {cif_file}")
 
-            eta = get_overpotential_for_cif(cif_file=cif_file)
+            eta = get_overpotential_for_cif(cif_file=cif_file, dirname=dirname)
 
             basename = os.path.basename(cif_file)
             if eta is None:
@@ -87,15 +137,10 @@ if __name__ == "__main__":
             else:
                 logger.info(f"file = {basename:26.24s}, eta = {eta:5.3f} eV")
     else:
-        #
-        # single file
-        #
-
         cif_file = "CaMn2O4_ICSD_CollCode280514.cif"
         # cif_file = "ICSD_CollCode35218_CaMnO3.cif"
 
-        if not os.path.isfile(cif_file):
-            logger.info(f"Could not found file: {cif_file}")
+        if not os.path.isfile(cif_file): logger.info(f"Could not found file: {cif_file}")
 
         eta = get_overpotential_for_cif(cif_file=cif_file)
 
@@ -104,4 +149,6 @@ if __name__ == "__main__":
             logger.info(f"failed for {basename}")
         else:
             logger.info(f"file = {basename:26.24s}, eta = {eta:5.3f} eV")
+
+    logger.info("All done")
 

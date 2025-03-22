@@ -1,2 +1,7 @@
 *__pycache__*
 venv
+work*
+tmp*
+
+*.e[0-9]*
+*.o[0-9]*
