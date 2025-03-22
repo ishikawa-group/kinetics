@@ -70,7 +70,13 @@ def get_overpotential_for_cif(cif_file=None, dirname=None):
     # --- DFT calculation
     calculator = "vasp"
     dfttype = "gga"  # ( "gga" | "plus_u" | "meta_gga" )
-    deltaEs = get_reaction_energy(reaction_file=reaction_file, surface=surface, calculator=calculator, dfttype=dfttype, verbose=True, dirname=dirname)
+
+    try:
+        deltaEs = get_reaction_energy(reaction_file=reaction_file, surface=surface, calculator=calculator, dfttype=dfttype, verbose=True, dirname=dirname)
+    except:
+        logger.info("Error: failed for some reason")
+        return None
+
     eta = get_overpotential_oer_orr(reaction_file=reaction_file, deltaEs=deltaEs, reaction_type="orr", verbose=True, energy_shift=energy_shift)
     eta = np.abs(eta)
 
@@ -126,19 +132,18 @@ if __name__ == "__main__":
         cif_files = cif_files[start:end]
 
         for cif_file in cif_files:
+
             if not os.path.isfile(cif_file):
                 logger.info(f"Could not found file: {cif_file}")
 
-            try:
-                eta = get_overpotential_for_cif(cif_file=cif_file, dirname=dirname)
-            except:
-                print("Some error in overpotential calculation")
+            eta = get_overpotential_for_cif(cif_file=cif_file, dirname=dirname)
 
             basename = os.path.basename(cif_file)
-            if eta is None:
-                logger.info(f"failed for {basename}")
-            else:
+            if eta is not None:
                 logger.info(f"file = {basename:26.24s}, eta = {eta:5.3f} eV")
+            else:
+                logger.info(f"failed for {basename}")
+
     else:
         cif_file = "CaMn2O4_ICSD_CollCode280514.cif"
         # cif_file = "ICSD_CollCode35218_CaMnO3.cif"
