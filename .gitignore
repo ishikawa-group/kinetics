@@ -3,5 +3,6 @@ venv
 work*
 tmp*
 
+.envrc
 *.e[0-9]*
 *.o[0-9]*
