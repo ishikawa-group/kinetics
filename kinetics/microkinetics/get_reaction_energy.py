@@ -1,18 +1,20 @@
 def register(db=None, atoms=None, data=None):
     formula = atoms.get_chemical_formula()
+
     db.write(atoms, name=formula, data=data)
     return None
 
 
 def get_past_atoms(db=None, atoms=None):
     formula = atoms.get_chemical_formula()
+
     try:
         id_ = db.get(name=formula).id
         first = False
         atoms = db.get_atoms(id=id_).copy()
     except Exception as e:
         first = True
-        atoms = atoms
+
     finally:
         return atoms, first
 
@@ -30,12 +32,30 @@ def get_past_energy(db=None, atoms=None):
         return energy, first
 
 
-def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt", verbose=False, dirname=""):
+def optimize_geometry(atoms=None, steps=100):
+    import copy
+    from ase.optimize import FIRE
+
+    atoms_ = copy.deepcopy(atoms)
+
+    if atoms_.calc.name == "vasp":
+        atoms_.get_potential_energy()
+    else:
+        name = atoms_.get_chemical_formula()
+        trajectory = name + ".traj"
+        opt = FIRE(atoms_, trajectory=trajectory)
+        opt.run(fmax=0.05, steps=steps)
+
+    return atoms_
+
+
+def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt", dfttype="gga", verbose=False, dirname=""):
     """
     Calculate reaction energy for each reaction.
     """
     import os
     import numpy as np
+    import copy
     from ase.build import add_adsorbate
     from ase.calculators.emt import EMT
     from ase.db import connect
@@ -46,6 +66,8 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
     from kinetics.microkinetics.utils import get_reac_and_prod
     from kinetics.microkinetics.vasp import set_vasp_calculator
     from kinetics.microkinetics.vasp import set_lmaxmix
+    from chgnet.model.dynamics import CHGNetCalculator
+    from chgnet.model.model import CHGNet
     from logging import getLogger
 
     logger = getLogger(__name__)
@@ -69,17 +91,19 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
     deltaEs = np.array([])
 
     # define calculator for molecules and surfaces separately
-    if "emt" in calculator:
+    if calculator == "emt":
         logger.info("EMT calculator is used.")
         calc_mol  = EMT()
         calc_surf = EMT()
-    elif "vasp" in calculator:
-        dfttype = "gga"
-        # dfttype = "plus_u"
-        # dfttype = "meta-gga"
+    elif calculator == "vasp":
         calc_mol  = set_vasp_calculator(atom_type="molecule", do_optimization=True, dfttype=dfttype)
         calc_surf = set_vasp_calculator(atom_type="surface", do_optimization=True, dfttype=dfttype)
-    elif "ocp" in valculator:
+    elif calculator == "chgnet":
+        chgnet = CHGNet.load()
+        potential = CHGNetCalculator(potential=chgnet, properties="energy")
+        calc_mol  = potential
+        calc_surf = potential
+    elif calculator == "ocp":
         calc_mol  = set_ocp_calculator()  # do not work
         calc_surf = set_ocp_calculator()
     else:
@@ -129,7 +153,7 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
         energies = {"reactant": 0.0, "product": 0.0}
 
         for side in ["reactant", "product"]:
-            surf_ = surface.copy()
+            surf_ = copy.deepcopy(surface)
 
             # assume high spin for surface
             symbols = surf_.get_chemical_symbols()
@@ -187,25 +211,30 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
                     # offset = (0.0, 0.50)  # for smallest cell
                     # offset = (0.45, 0.45)  # for 3x3 Ni111
                     # offset = (0.0, 0.0); height = 1.2  # CaMnO3
-                    offset = (0.1, 0.4); height = 1.8
+                    # offset = (0.5, 0.5); height = 1.7  # ABO3, 2x2x1
+                    offset = (1.0, 1.0); height = 1.7  # ABO3, 1x1x1
 
                     position = adsorbate.positions[0][:2]
 
                     # check whether the bare surface is calcualted before
                     surf_, first = get_past_atoms(db=tmpdb, atoms=surf_)
+
                     if first:
                         formula = surf_.get_chemical_formula()
                         directory = "work_" + dirname + "/" + formula
                         surf_.calc = calc_surf
                         surf_.calc.directory = directory
 
-                        if dfttype == "plus_u":
+                        if calculator == "vasp" and dfttype == "plus_u":
                             set_lmaxmix(atoms=surf_)
 
-                        surf_.get_potential_energy()
-                        register(db=tmpdb, atoms=surf_)
+                        # surf_.get_potential_energy()
+                        surf_ = optimize_geometry(atoms=surf_, steps=10)
+                        register(db=tmpdb, atoms=surf_, data={"energy": 0.0})
+                    else:
+                        print("Not the first time for bare surface")
 
-                    atoms = surf_.copy()
+                    atoms = copy.deepcopy(surf_)
                     add_adsorbate(atoms, adsorbate, offset=offset, position=position, height=height)
                     atoms.calc = calc_surf
                 else:
@@ -215,15 +244,16 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
                 # setting atoms done
                 energy, first = get_past_energy(db=tmpdb, atoms=atoms)
                 formula = atoms.get_chemical_formula()
+
                 if first:
                     if verbose:
-                        logger.info(f"First time to calculate {formula}")
+                        logger.info(f"Calculating {formula}")
                         write(atoms.get_chemical_formula() + ".png", atoms)
 
                     directory = "work_" + dirname + "/" + formula
                     atoms.calc.directory = directory
 
-                    if dfttype == "plus_u":
+                    if "vasp" in calculator and "plus" in dfttype:
                         set_lmaxmix(atoms=atoms)
 
                     energy = atoms.get_potential_energy()

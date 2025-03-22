@@ -696,7 +696,7 @@ def delete_num_from_json(num, jsonfile):
     db.delete([id_])
 
 
-def sort_atoms_by(atoms, xyz="x"):
+def sort_atoms_by(atoms, xyz="x", elementwise=True):
     # keep information for original Atoms
     tags = atoms.get_tags()
     pbc  = atoms.get_pbc()
@@ -705,10 +705,28 @@ def sort_atoms_by(atoms, xyz="x"):
 
     newatoms = Atoms()
     symbols = list(set(atoms.get_chemical_symbols()))
-    for symbol in symbols:
-        subatoms = Atoms(list(filter(lambda x: x.symbol == symbol, atoms)))
+    if elementwise:
+        for symbol in symbols:
+            subatoms = Atoms(list(filter(lambda x: x.symbol == symbol, atoms)))
+            atomlist = np.array([], dtype=dtype)
+            for idx, atom in enumerate(subatoms):
+                if xyz == "x":
+                    tmp = np.array([(idx, atom.x)], dtype=dtype)
+                elif xyz == "y":
+                    tmp = np.array([(idx, atom.y)], dtype=dtype)
+                else:
+                    tmp = np.array([(idx, atom.z)], dtype=dtype)
+
+                atomlist = np.append(atomlist, tmp)
+
+            atomlist = np.sort(atomlist, order=xyz)
+
+            for i in atomlist:
+                idx = i[0]
+                newatoms.append(subatoms[idx])
+    else:
         atomlist = np.array([], dtype=dtype)
-        for idx, atom in enumerate(subatoms):
+        for idx, atom in enumerate(atoms):
             if xyz == "x":
                 tmp = np.array([(idx, atom.x)], dtype=dtype)
             elif xyz == "y":
@@ -722,7 +740,7 @@ def sort_atoms_by(atoms, xyz="x"):
 
         for i in atomlist:
             idx = i[0]
-            newatoms.append(subatoms[idx])
+            newatoms.append(atoms[idx])
 
     # restore
     newatoms.set_tags(tags)
@@ -746,7 +764,7 @@ def get_number_of_layers(atoms):
     return nlayers
 
 
-def set_tags_by_z(atoms):
+def set_tags_by_z(atoms, elementwise=True):
     import pandas as pd
 
     pbc  = atoms.get_pbc()
@@ -756,8 +774,26 @@ def set_tags_by_z(atoms):
     symbols = list(set(atoms.get_chemical_symbols()))
     symbols = sorted(symbols)
 
-    for symbol in symbols:
-        subatoms = Atoms(list(filter(lambda x: x.symbol == symbol, atoms)))
+    if elementwise:
+        for symbol in symbols:
+            subatoms = Atoms(list(filter(lambda x: x.symbol == symbol, atoms)))
+            pos  = subatoms.positions
+            zpos = np.round(pos[:, 2], decimals=1)
+            bins = list(set(zpos))
+            bins = np.sort(bins)
+            bins = np.array(bins) + 1.0e-2
+            bins = np.insert(bins, 0, 0)
+
+            labels = []
+            for i in range(len(bins)-1):
+                labels.append(i)
+
+            tags = pd.cut(zpos, bins=bins, labels=labels).tolist()
+
+            subatoms.set_tags(tags)
+            newatoms += subatoms
+    else:
+        subatoms = atoms.copy()
         pos  = subatoms.positions
         zpos = np.round(pos[:, 2], decimals=1)
         bins = list(set(zpos))
@@ -769,7 +805,6 @@ def set_tags_by_z(atoms):
         for i in range(len(bins)-1):
             labels.append(i)
 
-        # tags = pd.cut(zpos, bins=bins, labels=labels).to_list()
         tags = pd.cut(zpos, bins=bins, labels=labels).tolist()
 
         subatoms.set_tags(tags)
@@ -788,29 +823,42 @@ def remove_layers(atoms=None, element=None, layers_to_remove=1):
 
     Args:
         atoms (Atoms): Atoms object
-        element (str): Element symbol
+        element (str): Element symbol. If None, any atom can be deleted.
         layers_to_remove(int): Number of layers (of specified element) to remove, from top of the surface.
     """
     pbc  = atoms.get_pbc()
     cell = atoms.get_cell()
 
     atoms_copy = atoms.copy()
-    atoms_copy = sort_atoms_by(atoms_copy, xyz="z")  # sort
-    atoms_copy = set_tags_by_z(atoms_copy)  # set tags
+    atoms_copy = sort_atoms_by(atoms_copy, xyz="z")
+
+    if element is not None:
+        atoms_copy = set_tags_by_z(atoms_copy)
+    else:
+        atoms_copy = set_tags_by_z(atoms_copy, elementwise=False)
 
     newatoms = Atoms()
 
     tags = atoms_copy.get_tags()
-    cond = [i == element for i in atoms_copy.get_chemical_symbols()]
-
-    maxtag = max(list(tags[cond]))
+    if element is not None:
+        cond = [i == element for i in atoms_copy.get_chemical_symbols()]
+        maxtag = max(list(tags[cond]))
+    else:
+        maxtag = max(atoms_copy.get_tags())
 
     for i, atom in enumerate(atoms_copy):
-        if atom.tag >= maxtag - layers_to_remove + 1 and atom.symbol == element:
-            # remove this atom
-            pass
+        if element is not None:
+            if atom.tag >= maxtag - layers_to_remove + 1 and atom.symbol == element:
+                # remove this atom
+                pass
+            else:
+                newatoms += atom
         else:
-            newatoms += atom
+            if atom.tag >= maxtag - layers_to_remove + 1:
+                # remove this atom
+                pass
+            else:
+                newatoms += atom
 
     newatoms.set_pbc(pbc)
     newatoms.set_cell(cell)
