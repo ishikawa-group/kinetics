@@ -1,8 +1,10 @@
 *__pycache__*
-venv
 work*
 tmp*
 
-.envrc
+*.png
 *.e[0-9]*
 *.o[0-9]*
+
+.envrc
+.venv
