@@ -7,102 +7,102 @@ def set_vasp_calculator(atom_type="molecule", dfttype="gga", do_optimization=Fal
         do_optimization: True or False.
     """
     import json
+    import yaml
+    from pathlib import Path
     from ase.calculators.vasp import Vasp
 
-    if atom_type == "molecule":
-        kpts = [1, 1, 1]
-        ismear = 0
-        sigma = 0.05
-        lreal = True
-        ldipol = False
-        idipol = None
-    elif atom_type == "surface":
-        kpt  = 1  # now using kspacing
-        kpts = [kpt, kpt, 1]
-        ismear = 1
-        sigma = 0.1
-        lreal  = True  # False will take very long time
-        ldipol = True
-        idipol = 3
-    elif atom_type == "solid":
-        kpt  = 1
-        kpts = [kpt, kpt, kpt]
-        ismear = 0
-        sigma = 0.2
-        lreal = False
-        ldipol = False
-        idipol = None
-    else:
-        print("some error")
-        quit()
+    # Load VASP parameters from YAML file
+    yaml_path = Path(__file__).parent / "vaspinput.yaml"
+    with open(yaml_path) as f:
+        vasp_params = yaml.safe_load(f)
 
-    # common setting
-    xc = "pbe"
-    encut = 450.0  # fails at 400-450?
-    ediff  = 1.0e-4
-    ediffg = -40.0e-2
-    lorbit = 10
-    algo = "Normal"
-    # algo = "Fast"
-    nelm = 30
-    nelmin = 3
-    npar = 2  # 2 # change according to the computational environment
-    nsim = npar
-    kpar = 1
-    ispin = 2
-    isym = 0  # switching off symmetry
-    kgamma = True
-    setups = {"Ca": "_sv", "K": "_sv", "Ba": "_sv", "Cr": "_sv", "Mn": "_sv", 
-              "Fe": "_sv", "Cs": "_sv", "Rb": "_sv", "Sr": "_sv", "Er": "_3", "Y": "_sv",
-              "Zr": "_sv", "Dy": "_3", "Sm": "_3", "Pa": "_s", "Tm": "_3", "Nd": "_3", "Ho": "_3",
-              "Nb": "_sv"
-             }
-    lasph = False
-    lwave = False
-    lcharg = False
-
-    amix = 0.4; amix_mag = 1.6; bmix = 1.0;     bmix_mag = 1.0     # default
-    # amix = 0.2; amix_mag = 0.8; bmix = 1.0e-4;  bmix_mag = 1.0e-4  # linear mixing
+    # Get atom type specific settings
+    if atom_type not in vasp_params:
+        raise ValueError(f"Invalid atom_type: {atom_type}")
+    
+    type_params = vasp_params[atom_type]
+    common_params = vasp_params["common"]
+    mixing_params = vasp_params["mixing"]
     
     # DFT + U
     if "plus" in dfttype:
-        ldau = True
-        lasph = True
-        ldautype = 2
-        u_param_file = "data/u_parameter.json"
+        dft_u_params = vasp_params["dft_plus_u"]
+        ldau = dft_u_params["ldau"]
+        lasph = dft_u_params["lasph"]
+        ldautype = dft_u_params["ldautype"]
+        # Load U parameters from JSON file
+        u_param_file = dft_u_params["u_param_file"]
         with open(u_param_file) as f:
             ldau_luj = json.load(f)
     else:
         ldau = None
         ldautype = None
         ldau_luj = None
+        lasph = common_params["lasph"]
 
     # metagga
     if "meta" in dfttype:
-        xc = "r2scan"
+        common_params["xc"] = "r2scan"
         lasph = True
-        algo = "Normal"
+        common_params["algo"] = "Normal"
 
     # geometry optimization related
-    if do_optimization:
-        ibrion = 2
-        potim = 0.1
-        nsw = 2
-    else:
-        ibrion = 0
-        potim = 0.0
-        nsw = 0
+    opt_params = vasp_params["optimization"]["enabled" if do_optimization else "disabled"]
 
-    calc = Vasp(prec="Normal", xc=xc, pp="pbe", encut=encut, ismear=ismear, sigma=sigma, ediff=ediff, ediffg=ediffg,
-                ibrion=ibrion, potim=potim, nsw=nsw, algo=algo, ldipol=ldipol, idipol=idipol, setups=setups, lasph=lasph,
-                ispin=ispin, npar=npar, nsim=nsim, nelmin=nelmin, nelm=nelm, lreal=lreal, lorbit=lorbit, kgamma=kgamma,
-                ldau=ldau, ldautype=ldautype, ldau_luj=ldau_luj, isym=isym,
-                lwave=lwave, lcharg=lcharg, kspacing=0.7, kpts=None, kpar=kpar,
-                amix=amix, amix_mag=amix_mag, bmix=bmix, bmix_mag=bmix_mag,
-                )
+    # Combine all parameters
+    calc_params = {
+        # Atom type specific parameters
+        "kpts": type_params["kpts"],
+        "ismear": type_params["ismear"],
+        "sigma": type_params["sigma"],
+        "lreal": type_params["lreal"],
+        "ldipol": type_params["ldipol"],
+        "idipol": type_params["idipol"],
 
+        # Common parameters
+        "prec": "Normal",
+        "xc": common_params["xc"],
+        "pp": "pbe",
+        "encut": common_params["encut"],
+        "ediff": common_params["ediff"],
+        "ediffg": common_params["ediffg"],
+        "lorbit": common_params["lorbit"],
+        "algo": common_params["algo"],
+        "nelm": common_params["nelm"],
+        "nelmin": common_params["nelmin"],
+        "npar": common_params["npar"],
+        "nsim": common_params["nsim"],
+        "kpar": common_params["kpar"],
+        "ispin": common_params["ispin"],
+        "isym": common_params["isym"],
+        "kgamma": common_params["kgamma"],
+        "lasph": lasph,
+        "lwave": common_params["lwave"],
+        "lcharg": common_params["lcharg"],
+        "kspacing": common_params["kspacing"],
+
+        # Mixing parameters
+        "amix": mixing_params["amix"],
+        "amix_mag": mixing_params["amix_mag"],
+        "bmix": mixing_params["bmix"],
+        "bmix_mag": mixing_params["bmix_mag"],
+
+        # DFT+U parameters
+        "ldau": ldau,
+        "ldautype": ldautype,
+        "ldau_luj": ldau_luj,
+
+        # Geometry optimization parameters
+        "ibrion": opt_params["ibrion"],
+        "potim": opt_params["potim"],
+        "nsw": opt_params["nsw"],
+
+        # Setups
+        "setups": vasp_params["setups"],
+    }
+
+    calc = Vasp(**calc_params)
     return calc
-
 
 def set_lmaxmix(atoms=None):
     # lmaxmix setting

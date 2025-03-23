@@ -14,4 +14,5 @@ dependencies = [
     "ase~=3.24",
     "pymatgen==2025.3.10",
     "matgl==1.2.1",
+    "pyyaml~=6.0",
 ]
