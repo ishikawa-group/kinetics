@@ -92,13 +92,13 @@ def get_overpotential_for_cif(cif_file=None, dirname=None):
     return eta
 
 
-def make_barplot(label=None, value=None):
+def make_barplot(labels=None, values=None):
     import matplotlib.pyplot as plt
     import numpy as np
 
-    sorted_indices = np.argsort(value)
-    sorted_labels  = [label[i] for i in sorted_indices]
-    sorted_values  = [value[i] for i in sorted_indices]
+    sorted_indices = np.argsort(values)
+    sorted_labels  = [labels[i] for i in sorted_indices]
+    sorted_values  = [values[i] for i in sorted_indices]
 
     plt.figure(figsize=(8,5))
     plt.bar(sorted_labels, sorted_values, color="skyblue")
@@ -167,7 +167,7 @@ if __name__ == "__main__":
             else:
                 logger.info(f"failed for {basename}")
 
-            make_barplot(label=materials, values=etas)
+        make_barplot(labels=materials, values=etas)
 
     else:
         cif_file = "CaMn2O4_ICSD_CollCode280514.cif"
