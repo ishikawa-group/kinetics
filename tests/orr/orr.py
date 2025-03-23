@@ -44,7 +44,7 @@ def get_overpotential_for_cif(cif_file=None, dirname=None):
 
     repeat = [1, 1, 2]
 
-    vacuum = 6.4
+    vacuum = 6.3
     surface = make_surface_from_cif(cif_file, indices=[0, 0, 1], repeat=repeat, vacuum=vacuum)
 
     surface, count = sort_atoms_by_z(surface)
@@ -69,7 +69,7 @@ def get_overpotential_for_cif(cif_file=None, dirname=None):
 
     # --- DFT calculation
     calculator = "vasp"
-    dfttype = "gga"  # ( "gga" | "plus_u" | "meta_gga" )
+    dfttype = "plus_u"  # ( "gga" | "plus_u" | "meta_gga" )
 
     try:
         deltaEs = get_reaction_energy(reaction_file=reaction_file, surface=surface, calculator=calculator, dfttype=dfttype, verbose=True, dirname=dirname)
@@ -92,6 +92,22 @@ def get_overpotential_for_cif(cif_file=None, dirname=None):
     return eta
 
 
+def make_barplot(label=None, value=None):
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    sorted_indices = np.argsort(value)
+    sorted_labels  = [label[i] for i in sorted_indices]
+    sorted_values  = [value[i] for i in sorted_indices]
+
+    plt.figure(figsize=(8,5))
+    plt.bar(sorted_labels, sorted_values, color="skyblue")
+
+    plt.ylabel("Overpotential (eV)")
+    plt.savefig("bar_plot.png", dpi=300, bbox_inches="tight")
+    plt.show()
+
+
 if __name__ == "__main__":
     import os
     import glob
@@ -109,7 +125,7 @@ if __name__ == "__main__":
     start = args.start
     end = args.end
 
-    basicConfig(level=INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    basicConfig(level=INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
     logger = getLogger(__name__)
 
     loop_over_directory = True
@@ -117,8 +133,9 @@ if __name__ == "__main__":
     logger.info("Start calculation")
 
     if loop_over_directory:
-        directory = "/ABO3_cif_large/"
+        # directory = "/ABO3_cif_large/"
         # directory = "/ABO3_cif/"
+        directory = "/ABO3_Mn_cif/"
         # directory = "/sugawara/"
 
         cif_files = glob.glob(os.getcwd() + directory + "*.cif")
@@ -131,6 +148,8 @@ if __name__ == "__main__":
 
         cif_files = cif_files[start:end]
 
+        materials = []
+        etas = []
         for cif_file in cif_files:
 
             if not os.path.isfile(cif_file):
@@ -139,10 +158,16 @@ if __name__ == "__main__":
             eta = get_overpotential_for_cif(cif_file=cif_file, dirname=dirname)
 
             basename = os.path.basename(cif_file)
+            material = basename.split("_")[1].split(".")[0]
+
             if eta is not None:
-                logger.info(f"file = {basename:26.24s}, eta = {eta:5.3f} eV")
+                logger.info(f"file = {material:22.20s}, eta = {eta:5.3f} eV")
+                materials.append(material)
+                etas.append(eta)
             else:
                 logger.info(f"failed for {basename}")
+
+            make_barplot(label=materials, values=etas)
 
     else:
         cif_file = "CaMn2O4_ICSD_CollCode280514.cif"
