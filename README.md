@@ -1,40 +1,30 @@
 # kinetics
 * Assemble of codes related to the chemical kinetics.
 
-## Bandgap
-* Calculates the bandgap with VASP.
-
-### Usage
-```python
-from ase.io import read
-from kinetics.bandgap import get_bandgap
-
-cif = "BaZrO3.cif"
-atoms = read(cif)
-
-bandgap = get_bandgap(atoms=atoms)
-print(f"bandgap = {bandgap:5.3f} eV")
-```
-
-## Hydration
-* Calculates following three properties:
-1. oxygen atom vacancy formation energy
-2. H atom adsorption energy (in bulk)
-3. hydration energy
-
-### Usage
-```python
-from ase.io import read
-from kinetics.hydration import get_hydration_energy
-
-cif = "BaZrO3.cif"
-atoms = read(cif)
-
-hydration, vacancy, oh = get_hydration_energy(atoms)
-print(f"hydration energy = {hydration:5.3f} eV")
-print(f"oxygen vacation formation energy = {vacancy:5.3f} eV")
-print(f"proton formation energy = {oh:5.3f} eV")
-```
-
 ## Diffusion
 * Please see `README.md` in the `diffusion` directory.
+
+## Oxygen reduction reaction (ORR)
+* Calculates the overpotential for oxygen reduction reaction (ORR).
+* Includes zero-point energy (ZPE) and entropy corrections.
+
+### Usage
+```python
+from kinetics.microkinetics.orr_and_oer import get_overpotential_oer_orr
+
+# Reaction energies for each step (deltaEs)
+# 1. O2 + H+ + e- → OOH*
+# 2. OOH* + H+ + e- → O* + H2O
+# 3. O* + H+ + e- → OH*
+# 4. OH* + H+ + e- → H2O
+deltaEs = [1.0, 0.5, 0.3, 0.2]  # example values in eV
+
+overpotential = get_overpotential_oer_orr(
+    reaction_file="path/to/reaction.txt",
+    deltaEs=deltaEs,
+    T=298.15,  # temperature in K
+    reaction_type="orr",  # "orr" or "oer"
+    verbose=True  # prints detailed energy information
+)
+print(f"ORR overpotential = {overpotential:5.3f} V")
+```
