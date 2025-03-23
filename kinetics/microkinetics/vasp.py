@@ -44,7 +44,7 @@ def set_vasp_calculator(atom_type="molecule", dfttype="gga", do_optimization=Fal
     lorbit = 10
     algo = "Normal"
     # algo = "Fast"
-    nelm = 40
+    nelm = 30
     nelmin = 3
     npar = 2  # 2 # change according to the computational environment
     nsim = npar
@@ -87,7 +87,7 @@ def set_vasp_calculator(atom_type="molecule", dfttype="gga", do_optimization=Fal
     if do_optimization:
         ibrion = 2
         potim = 0.1
-        nsw = 1
+        nsw = 2
     else:
         ibrion = 0
         potim = 0.0
@@ -97,7 +97,7 @@ def set_vasp_calculator(atom_type="molecule", dfttype="gga", do_optimization=Fal
                 ibrion=ibrion, potim=potim, nsw=nsw, algo=algo, ldipol=ldipol, idipol=idipol, setups=setups, lasph=lasph,
                 ispin=ispin, npar=npar, nsim=nsim, nelmin=nelmin, nelm=nelm, lreal=lreal, lorbit=lorbit, kgamma=kgamma,
                 ldau=ldau, ldautype=ldautype, ldau_luj=ldau_luj, isym=isym,
-                lwave=lwave, lcharg=lcharg, kspacing=0.6, kpts=None, kpar=kpar,
+                lwave=lwave, lcharg=lcharg, kspacing=0.7, kpts=None, kpar=kpar,
                 amix=amix, amix_mag=amix_mag, bmix=bmix, bmix_mag=bmix_mag,
                 )
 

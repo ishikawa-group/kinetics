@@ -11,7 +11,7 @@ def get_overpotential_oer_orr(reaction_file, deltaEs, T=298.15, reaction_type="o
 
     logger = getLogger(__name__)
     #np.set_printoptions(precision=3)
-    np.set_printoptions(formatter={"float": "{: 0.3f}".format})
+    np.set_printoptions(formatter={"float": "{:0.2f}".format})
 
     rxn_num = get_number_of_reaction(reaction_file)
 
