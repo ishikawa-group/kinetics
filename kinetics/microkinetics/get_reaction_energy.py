@@ -68,6 +68,9 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
     from kinetics.microkinetics.vasp import set_lmaxmix
     from chgnet.model.dynamics import CHGNetCalculator
     from chgnet.model.model import CHGNet
+    from ase.build import bulk
+    import matgl
+    from matgl.ext.ase import PESCalculator
     from logging import getLogger
 
     logger = getLogger(__name__)
@@ -103,6 +106,10 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
         potential = CHGNetCalculator(potential=chgnet, properties="energy")
         calc_mol  = potential
         calc_surf = potential
+    elif calculator == "m3gnet":
+        potential = matgl.load_model("M3GNet-MP-2021.2.8-PES")
+        calc_mol  = PESCalculator(potential=potential)
+        calc_surf = PESCalculator(potential=potential)
     elif calculator == "ocp":
         calc_mol  = set_ocp_calculator()  # do not work
         calc_surf = set_ocp_calculator()

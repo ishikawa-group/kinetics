@@ -28,3 +28,8 @@ overpotential = get_overpotential_oer_orr(
 )
 print(f"ORR overpotential = {overpotential:5.3f} V")
 ```
+
+## Authors
+* Yang Long (https://github.com/Long-Brian-Yang)
+* Atsush Ishikawa (https://github.com/atsushi-ishikawa)
+
