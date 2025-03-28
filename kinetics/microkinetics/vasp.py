@@ -1,4 +1,4 @@
-def set_vasp_calculator(atom_type="molecule", dfttype="gga", do_optimization=False):
+def set_vasp_calculator(atom_type="molecule", input_yaml="vaspinput_template.yaml", do_optimization=False, dfttype=None):
     """
     Set up a calculator using VASP.
 
@@ -12,8 +12,7 @@ def set_vasp_calculator(atom_type="molecule", dfttype="gga", do_optimization=Fal
     from ase.calculators.vasp import Vasp
 
     # Load VASP parameters from YAML file
-    yaml_path = Path(__file__).parent / "vaspinput.yaml"
-    with open(yaml_path) as f:
+    with open(input_yaml) as f:
         vasp_params = yaml.safe_load(f)
 
     # Get atom type specific settings
@@ -30,6 +29,7 @@ def set_vasp_calculator(atom_type="molecule", dfttype="gga", do_optimization=Fal
         ldau = dft_u_params["ldau"]
         lasph = dft_u_params["lasph"]
         ldautype = dft_u_params["ldautype"]
+
         # Load U parameters from JSON file
         u_param_file = dft_u_params["u_param_file"]
         with open(u_param_file) as f:
@@ -72,7 +72,6 @@ def set_vasp_calculator(atom_type="molecule", dfttype="gga", do_optimization=Fal
         "nelmin": common_params["nelmin"],
         "npar": common_params["npar"],
         "nsim": common_params["nsim"],
-        "kpar": common_params["kpar"],
         "ispin": common_params["ispin"],
         "isym": common_params["isym"],
         "kgamma": common_params["kgamma"],
@@ -100,6 +99,9 @@ def set_vasp_calculator(atom_type="molecule", dfttype="gga", do_optimization=Fal
         # Setups
         "setups": vasp_params["setups"],
     }
+
+    if calc_params["kspacing"] is not None:
+        calc_params["kpts"] = type_params["kpts"]
 
     calc = Vasp(**calc_params)
     return calc

@@ -37,7 +37,6 @@ common:
   nelmin: 3
   npar: 2
   nsim: 2
-  kpar: 1
   ispin: 2
   isym: 0
   kgamma: true
