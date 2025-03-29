@@ -59,7 +59,7 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
     """
     Calculate reaction energy for each reaction.
     """
-    import os
+    from pathlib import Path
     import numpy as np
     import copy
     import yaml
@@ -83,11 +83,12 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
     rxn_num = get_number_of_reaction(reaction_file)
 
     # load molecule collection
-    database_file = "data/g2plus.json"
-    if os.path.exists(database_file):
-        database = connect(database_file)
+    package_dir = Path(__file__).resolve().parent
+    database_path = package_dir / "g2plus.json"
+    if database_path.exists():
+        database = connect(database_path)
     else:
-        logger.info(f"{database_file} not found.")
+        logger.info(f"{database_path} not found.")
         raise FileNotFoundError
 
     # temporary database
@@ -242,14 +243,6 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
                     if tmp in rotation:
                         adsorbate.rotate(*rotation[tmp])
 
-                    # height = 1.8
-                    # offset = (0.0, 0.25)  # for middle cell
-                    # offset = (0.0, 0.50)  # for smallest cell
-                    # offset = (0.45, 0.45)  # for 3x3 Ni111
-                    # offset = (0.0, 0.0); height = 1.2  # CaMnO3
-                    # offset = (0.5, 0.5); height = 1.7  # ABO3, 2x2x1
-                    # offset = (1.0, 1.0); height = 1.7  # ABO3, 1x1x1
-
                     position = adsorbate.positions[0][:2]
 
                     # check whether the bare surface is calcualted before
@@ -257,9 +250,10 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
 
                     if first:
                         formula = surf_.get_chemical_formula()
-                        directory = "work_" + dirname + "/" + formula
+                        work_dir = Path("work_" + dirname) / formula
+                        work_dir.mkdir(parents=True, exist_ok=True)
                         surf_.calc = calc_surf
-                        surf_.calc.directory = directory
+                        surf_.calc.directory = str(work_dir)
 
                         if "vasp" in calculator and "plus" in dfttype:
                             set_lmaxmix(atoms=surf_)
@@ -286,8 +280,9 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
                         logger.info(f"Calculating {formula}")
                         write(atoms.get_chemical_formula() + ".png", atoms)
 
-                    directory = "work_" + dirname + "/" + formula
-                    atoms.calc.directory = directory
+                    work_dir = Path("work_" + dirname) / formula
+                    work_dir.mkdir(parents=True, exist_ok=True)
+                    atoms.calc.directory = str(work_dir)
 
                     if "vasp" in calculator and "plus" in dfttype:
                         set_lmaxmix(atoms=atoms)
