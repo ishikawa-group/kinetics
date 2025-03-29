@@ -42,9 +42,9 @@ def get_overpotential_for_cif(cif_file=None, dirname=None):
 
     # replace_percent = 0
 
-    repeat = [1, 1, 2]
+    repeat = [2, 2, 2]
 
-    vacuum = 6.3
+    vacuum = 6.5
     surface = make_surface_from_cif(cif_file, indices=[0, 0, 1], repeat=repeat, vacuum=vacuum)
 
     surface, count = sort_atoms_by_z(surface)
@@ -69,12 +69,9 @@ def get_overpotential_for_cif(cif_file=None, dirname=None):
 
     # --- DFT calculation
     calculator = "vasp"
-    dfttype = "plus_u"  # ( "gga" | "plus_u" | "meta_gga" )
 
-    try:
-        deltaEs = get_reaction_energy(reaction_file=reaction_file, surface=surface, calculator=calculator, dfttype=dfttype, verbose=True, dirname=dirname)
-    except:
-        logger.info("Error: failed for some reason")
+    deltaEs = get_reaction_energy(reaction_file=reaction_file, surface=surface, calculator=calculator, input_yaml="tmp.yaml", verbose=True, dirname=dirname)
+    if deltaEs is None:
         return None
 
     eta = get_overpotential_oer_orr(reaction_file=reaction_file, deltaEs=deltaEs, reaction_type="orr", verbose=True, energy_shift=energy_shift)
@@ -92,27 +89,34 @@ def get_overpotential_for_cif(cif_file=None, dirname=None):
     return eta
 
 
-def make_barplot(labels=None, values=None):
+def make_barplot(labels=None, values=None, threshold=100):
     import matplotlib.pyplot as plt
     import numpy as np
+
+    labels = [label for label, value in zip(labels, values) if value < threshold]
+    values = [value for value in values if value < threshold]
 
     sorted_indices = np.argsort(values)
     sorted_labels  = [labels[i] for i in sorted_indices]
     sorted_values  = [values[i] for i in sorted_indices]
 
+    plt.rcParams['font.size'] = 10
+
     plt.figure(figsize=(8,5))
     plt.bar(sorted_labels, sorted_values, color="skyblue")
 
     plt.ylabel("Overpotential (eV)")
+    plt.xticks(rotation=45)
     plt.savefig("bar_plot.png", dpi=300, bbox_inches="tight")
     plt.show()
 
 
 if __name__ == "__main__":
+    import sys
     import os
     import glob
     from ase.io import read
-    from logging import basicConfig, getLogger, INFO
+    import logging
     import argparse
 
     parser = argparse.ArgumentParser()
@@ -125,8 +129,11 @@ if __name__ == "__main__":
     start = args.start
     end = args.end
 
-    basicConfig(level=INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
-    logger = getLogger(__name__)
+    logging.basicConfig(level=logging.INFO, 
+                        format="%(asctime)s %(levelname)s %(name)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S",
+                        handlers=[logging.StreamHandler(sys.stdout)])
+
+    logger = logging.getLogger(__name__)
 
     loop_over_directory = True
 
@@ -146,28 +153,26 @@ if __name__ == "__main__":
 
         logger.info(f"Found {len(cif_files)} files, and do calculation from {start} to {end}.")
 
-        cif_files = cif_files[start:end]
-
         materials = []
         etas = []
-        for cif_file in cif_files:
+
+        for cif_file in cif_files[start:end]:
 
             if not os.path.isfile(cif_file):
                 logger.info(f"Could not found file: {cif_file}")
 
             eta = get_overpotential_for_cif(cif_file=cif_file, dirname=dirname)
 
-            basename = os.path.basename(cif_file)
-            material = basename.split("_")[1].split(".")[0]
+            material = os.path.basename(cif_file).split("_")[1].split(".")[0]
 
             if eta is not None:
-                logger.info(f"file = {material:22.20s}, eta = {eta:5.3f} eV")
+                logger.info(f"material: {material:12.10s} eta: {eta:5.3f} eV")
                 materials.append(material)
                 etas.append(eta)
             else:
-                logger.info(f"failed for {basename}")
+                logger.info(f"failed for {material}")
 
-        make_barplot(labels=materials, values=etas)
+        make_barplot(labels=materials, values=etas, threshold=1000)
 
     else:
         cif_file = "CaMn2O4_ICSD_CollCode280514.cif"

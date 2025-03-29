@@ -35,11 +35,17 @@ def get_past_energy(db=None, atoms=None):
 def optimize_geometry(atoms=None, steps=100):
     import copy
     from ase.optimize import FIRE
+    import logging
+
+    logger = logging.getLogger(__name__)
 
     atoms_ = copy.deepcopy(atoms)
 
-    if atoms_.calc.name == "vasp":
-        atoms_.get_potential_energy()
+    if "vasp" in atoms_.calc.name:
+        try:
+            atoms_.get_potential_energy()
+        except:
+            logger.info("Error at VASP")
     else:
         name = atoms_.get_chemical_formula()
         trajectory = name + ".traj"
@@ -49,13 +55,14 @@ def optimize_geometry(atoms=None, steps=100):
     return atoms_
 
 
-def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt", dfttype="gga", verbose=False, dirname=""):
+def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt", input_yaml=None, verbose=False, dirname=""):
     """
     Calculate reaction energy for each reaction.
     """
     import os
     import numpy as np
     import copy
+    import yaml
     from ase.build import add_adsorbate
     from ase.calculators.emt import EMT
     from ase.db import connect
@@ -66,14 +73,11 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
     from kinetics.microkinetics.utils import get_reac_and_prod
     from kinetics.microkinetics.vasp import set_vasp_calculator
     from kinetics.microkinetics.vasp import set_lmaxmix
-    from chgnet.model.dynamics import CHGNetCalculator
-    from chgnet.model.model import CHGNet
     from ase.build import bulk
-    import matgl
-    from matgl.ext.ase import PESCalculator
-    from logging import getLogger
+    import logging
 
-    logger = getLogger(__name__)
+    logger = logging.getLogger(__name__)
+    np.set_printoptions(formatter={"float": "{:0.2f}".format})
 
     r_ads, r_site, r_coef, p_ads, p_site, p_coef = get_reac_and_prod(reaction_file)
     rxn_num = get_number_of_reaction(reaction_file)
@@ -94,27 +98,52 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
     deltaEs = np.array([])
 
     # define calculator for molecules and surfaces separately
-    if calculator == "emt":
+    calculator = calculator.lower()
+
+    if "emt" in calculator:
         logger.info("EMT calculator is used.")
         calc_mol  = EMT()
         calc_surf = EMT()
-    elif calculator == "vasp":
-        calc_mol  = set_vasp_calculator(atom_type="molecule", do_optimization=True, dfttype=dfttype)
-        calc_surf = set_vasp_calculator(atom_type="surface", do_optimization=True, dfttype=dfttype)
-    elif calculator == "chgnet":
+
+    elif "vasp" in calculator:
+        # Load dfttype parameter from YAML file
+        with open(input_yaml) as f:
+            logger.info(f"Reading {input_yaml}")
+            vasp_params = yaml.safe_load(f)
+            dfttype = vasp_params["dfttype"]
+
+        calc_mol  = set_vasp_calculator(atom_type="molecule", input_yaml=input_yaml, do_optimization=True, dfttype=dfttype)
+        calc_surf = set_vasp_calculator(atom_type="surface", input_yaml=input_yaml, do_optimization=True, dfttype=dfttype)
+
+    elif "chgnet" in calculator:
+        from chgnet.model.dynamics import CHGNetCalculator
+        from chgnet.model.model import CHGNet
+
         chgnet = CHGNet.load()
         potential = CHGNetCalculator(potential=chgnet, properties="energy")
         calc_mol  = potential
         calc_surf = potential
-    elif calculator == "m3gnet":
+
+    elif "m3gnet" in calculator:
+        import matgl
+        from matgl.ext.ase import PESCalculator
+
         potential = matgl.load_model("M3GNet-MP-2021.2.8-PES")
         calc_mol  = PESCalculator(potential=potential)
         calc_surf = PESCalculator(potential=potential)
-    elif calculator == "ocp":
+
+    elif "ocp" in calculator:
         calc_mol  = set_ocp_calculator()  # do not work
         calc_surf = set_ocp_calculator()
+
     else:
         raise ValueError("Choose from emt, vasp, ocp.")
+
+    # load offset from "offset.yaml"
+    with open("offset.yaml") as f:
+        ads_params = yaml.safe_load(f)
+        offset = ads_params["offset"]
+        height = ads_params["height"]
 
     # rotational angle for adsorbed molecules
     # note: also input duplicated name (e.g. "HO" and "OH")
@@ -219,7 +248,7 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
                     # offset = (0.45, 0.45)  # for 3x3 Ni111
                     # offset = (0.0, 0.0); height = 1.2  # CaMnO3
                     # offset = (0.5, 0.5); height = 1.7  # ABO3, 2x2x1
-                    offset = (1.0, 1.0); height = 1.7  # ABO3, 1x1x1
+                    # offset = (1.0, 1.0); height = 1.7  # ABO3, 1x1x1
 
                     position = adsorbate.positions[0][:2]
 
@@ -232,14 +261,14 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
                         surf_.calc = calc_surf
                         surf_.calc.directory = directory
 
-                        if calculator == "vasp" and dfttype == "plus_u":
+                        if "vasp" in calculator and "plus" in dfttype:
                             set_lmaxmix(atoms=surf_)
 
-                        # surf_.get_potential_energy()
-                        surf_ = optimize_geometry(atoms=surf_, steps=10)
+                        surf_ = optimize_geometry(atoms=surf_)
                         register(db=tmpdb, atoms=surf_, data={"energy": 0.0})
                     else:
-                        print("Not the first time for bare surface")
+                        # Not the first time for - use previous value
+                        pass
 
                     atoms = copy.deepcopy(surf_)
                     add_adsorbate(atoms, adsorbate, offset=offset, position=position, height=height)
@@ -263,8 +292,12 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
                     if "vasp" in calculator and "plus" in dfttype:
                         set_lmaxmix(atoms=atoms)
 
-                    energy = atoms.get_potential_energy()
-                    register(db=tmpdb, atoms=atoms, data={"energy": energy})
+                    try:
+                        energy = atoms.get_potential_energy()
+                        register(db=tmpdb, atoms=atoms, data={"energy": energy})
+                    except:
+                        logger.info("Error at VASP")
+                        return None
 
                 # add zpe for gaseous molecule
                 if add_zpe_here:
