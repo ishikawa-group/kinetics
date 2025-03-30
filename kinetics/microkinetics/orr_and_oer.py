@@ -13,6 +13,14 @@ def get_overpotential_oer_orr(reaction_file, deltaEs, T=298.15, reaction_type="o
 
     rxn_num = get_number_of_reaction(reaction_file)
 
+    # when energy shift is unnecessary
+    if energy_shift is None:
+      energy_shift is np.zeros(rxn_num)
+
+    # check the contents of deltaE
+    if any(e is None for e in deltaEs):
+      return None
+
     zpe = {"H2": 0.0, "H2O": 0.0, "OHads": 0.0, "Oads": 0.0, "OOHads": 0.0}
     S = {"H2": 0.0, "H2O": 0.0, "O2": 0.0}
 
@@ -97,4 +105,5 @@ def get_overpotential_oer_orr(reaction_file, deltaEs, T=298.15, reaction_type="o
     plt.plot(deltaGs_eq, "o")
     plt.savefig(fig_name)
 
+    eta = np.abs(eta)
     return eta
