@@ -66,6 +66,7 @@ def get_overpotential_for_cif(cif_file=None, dirname=None):
 
 
 if __name__ == "__main__":
+    import sys
     import os
     import glob
     from ase.io import read
