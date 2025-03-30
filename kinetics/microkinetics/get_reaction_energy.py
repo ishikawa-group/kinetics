@@ -1,7 +1,3 @@
-import warnings
-warnings.filterwarnings("ignore")
-
-
 def register(db=None, atoms=None, data=None):
     formula = atoms.get_chemical_formula()
 
@@ -36,10 +32,12 @@ def get_past_energy(db=None, atoms=None):
         return energy, first
 
 
-def optimize_geometry(atoms=None, steps=100):
+def optimize_geometry(atoms=None, steps=30):
     import copy
     from ase.optimize import FIRE
     import logging
+    import warnings
+    warnings.filterwarnings("ignore")
 
     logger = logging.getLogger(__name__)
 
@@ -53,7 +51,7 @@ def optimize_geometry(atoms=None, steps=100):
     else:
         name = atoms_.get_chemical_formula()
         trajectory = name + ".traj"
-        opt = FIRE(atoms_, trajectory=trajectory)
+        opt = FIRE(atoms_, trajectory=trajectory, logfile="opt_log.txt")
         opt.run(fmax=0.05, steps=steps)
 
     return atoms_
@@ -79,7 +77,9 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
     from kinetics.microkinetics.vasp import set_lmaxmix
     from ase.build import bulk
     import logging
+    import warnings
 
+    warnings.filterwarnings("ignore")
     logger = logging.getLogger(__name__)
     np.set_printoptions(formatter={"float": "{:0.2f}".format})
 
@@ -312,8 +312,6 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
         deltaEs = np.append(deltaEs, deltaE)
 
     # loop over reaction - done
-    np.printoptions(precision=3)
     logger.info(f"deltaEs = {deltaEs}")
 
     return deltaEs
-

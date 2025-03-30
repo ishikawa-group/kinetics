@@ -1,17 +1,13 @@
-import warnings
-warnings.filterwarnings("ignore")
-
-
 def get_overpotential_oer_orr(reaction_file, deltaEs, T=298.15, reaction_type="oer", energy_shift=None, verbose=False):
     """
     Calculate overpotential for OER or ORR.
     """
-    import sys
-    sys.path.append("../../")
     import numpy as np
     import matplotlib.pyplot as plt
     from kinetics.microkinetics.utils import get_number_of_reaction
     import logging
+    import warnings
+    warnings.filterwarnings("ignore")
 
     logger = logging.getLogger(__name__)
     np.set_printoptions(formatter={"float": "{:0.2f}".format})

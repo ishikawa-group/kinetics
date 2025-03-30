@@ -13,6 +13,8 @@ def get_overpotential_for_cif(cif_file=None, dirname=None):
     from kinetics.microkinetics.get_reaction_energy import get_reaction_energy
     from kinetics.microkinetics.orr_and_oer import get_overpotential_oer_orr 
     from ase.visualize import view
+    import warnings
+    warnings.filterwarnings("ignore")
 
     # replace_percent = 0
 
@@ -73,6 +75,8 @@ if __name__ == "__main__":
     import logging
     import argparse
     from kinetics.microkinetics.utils import make_barplot
+    import warnings
+    warnings.filterwarnings("ignore")
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--dirname", type=str, default="0")
