@@ -75,8 +75,6 @@ if __name__ == "__main__":
     import logging
     import argparse
     from kinetics.microkinetics.utils import make_barplot
-    import warnings
-    warnings.filterwarnings("ignore")
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--dirname", type=str, default="0")

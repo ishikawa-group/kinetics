@@ -77,9 +77,7 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
     from kinetics.microkinetics.vasp import set_lmaxmix
     from ase.build import bulk
     import logging
-    import warnings
 
-    warnings.filterwarnings("ignore")
     logger = logging.getLogger(__name__)
     np.set_printoptions(formatter={"float": "{:0.2f}".format})
 
@@ -120,26 +118,13 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
         calc_mol  = set_vasp_calculator(atom_type="molecule", input_yaml=input_yaml, do_optimization=True, dfttype=dfttype)
         calc_surf = set_vasp_calculator(atom_type="surface", input_yaml=input_yaml, do_optimization=True, dfttype=dfttype)
 
-    elif "chgnet" in calculator:
-        from chgnet.model.dynamics import CHGNetCalculator
-        from chgnet.model.model import CHGNet
-
-        chgnet = CHGNet.load()
-        potential = CHGNetCalculator(potential=chgnet, properties="energy")
-        calc_mol  = potential
-        calc_surf = potential
-
-    elif "m3gnet" in calculator:
+    elif "m3gnet" in calculator:        
         import matgl
         from matgl.ext.ase import PESCalculator
 
         potential = matgl.load_model("M3GNet-MP-2021.2.8-PES")
         calc_mol  = PESCalculator(potential=potential)
         calc_surf = PESCalculator(potential=potential)
-
-    elif "ocp" in calculator:
-        calc_mol  = set_ocp_calculator()  # do not work
-        calc_surf = set_ocp_calculator()
 
     else:
         raise ValueError("Choose from emt, vasp, ocp.")
