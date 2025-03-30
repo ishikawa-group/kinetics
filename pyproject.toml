@@ -12,7 +12,11 @@ authors = [
 requires-python = "<3.13"
 dependencies = [
     "ase~=3.24",
-    "pymatgen==2025.3.10",
+    "pymatgen==2025.1.9",
     "matgl==1.2.1",
     "pyyaml~=6.0",
+    "pyqt5==5.15.11",
 ]
+
+[tool.setuptools.package-data]
+kinetics = ["microkinetics/data/*"]
