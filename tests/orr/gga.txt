@@ -1,4 +1,0 @@
-2025-03-22 09:59:20,062 INFO __main__: file = mp-1001571_CaFeO3.cif     , eta = 1.032 eV
-2025-03-22 10:09:18,945 INFO __main__: file = mp-1016820_MgSnO3.cif     , eta = 1.361 eV
-2025-03-22 10:21:36,834 INFO __main__: file = mp-1016821_BaSiO3.cif     , eta = 1.686 eV
-2025-03-22 10:45:54,947 INFO __main__: file = mp-1016823_BaGeO3.cif     , eta = 1.697 eV

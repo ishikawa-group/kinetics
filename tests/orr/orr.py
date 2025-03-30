@@ -1,32 +1,4 @@
-def add_data_to_jsonfile(jsonfile, data):
-    """
-    add data to database
-    """
-    import json
-
-    if not os.path.exists(jsonfile):
-        with open(jsonfile, "w") as f:
-            json.dump([], f)
-
-    with open(jsonfile, "r") as f:
-        datum = json.load(f)
-
-        # remove "doing" record as calculation is done
-        for i in range(len(datum)):
-            if datum[i]["status"] == "doing":
-                datum.pop(i)
-                break
-
-        datum.append(data)
-
-    with open(jsonfile, "w") as f:
-        json.dump(datum, f, indent=4)
-
-
 def get_overpotential_for_cif(cif_file=None, dirname=None):
-    import sys
-    sys.path.append("../../")
-
     import numpy as np
     import json
     import uuid
@@ -36,6 +8,8 @@ def get_overpotential_for_cif(cif_file=None, dirname=None):
     from kinetics.microkinetics.utils import replace_element
     from kinetics.microkinetics.utils import fix_lower_surface
     from kinetics.microkinetics.utils import sort_atoms_by_z
+    from kinetics.microkinetics.utils import add_data_to_jsonfile
+    from kinetics.microkinetics.utils import make_barplot
     from kinetics.microkinetics.get_reaction_energy import get_reaction_energy
     from kinetics.microkinetics.orr_and_oer import get_overpotential_oer_orr 
     from ase.visualize import view
@@ -63,14 +37,16 @@ def get_overpotential_for_cif(cif_file=None, dirname=None):
     energy_shift = [0]*4
 
     # reaction_file = "orr_alkaline.txt"  # not really good on first step
+    reaction_file = "orr_alkaline2.txt"; energy_shift = [-0.32, -0.54, -0.47, -0.75]
     # reaction_file = "orr_alkaline2.txt"; energy_shift = [-0.32+0.75, -0.54+0.32, -0.47+0.54, -0.75+0.47]
     # reaction_file = "orr_alkaline3.txt"; energy_shift = [-0.32+0.75-4.92, -0.54+0.32, -0.47+0.54, -0.75+0.47]
-    reaction_file = "orr_alkaline3.txt"; energy_shift = [-4.92, 0, 0, 0]
+    # reaction_file = "orr_alkaline3.txt"; energy_shift = [-0.32-4.92, -0.54, -0.47, -0.75]
+    # reaction_file = "orr_alkaline3.txt"; energy_shift = [-4.92, 0, 0, 0]
 
-    # --- DFT calculation
-    calculator = "vasp"
+    calculator = "m3gnet"
 
     deltaEs = get_reaction_energy(reaction_file=reaction_file, surface=surface, calculator=calculator, input_yaml="tmp.yaml", verbose=True, dirname=dirname)
+
     if deltaEs is None:
         return None
 
@@ -89,35 +65,13 @@ def get_overpotential_for_cif(cif_file=None, dirname=None):
     return eta
 
 
-def make_barplot(labels=None, values=None, threshold=100):
-    import matplotlib.pyplot as plt
-    import numpy as np
-
-    labels = [label for label, value in zip(labels, values) if value < threshold]
-    values = [value for value in values if value < threshold]
-
-    sorted_indices = np.argsort(values)
-    sorted_labels  = [labels[i] for i in sorted_indices]
-    sorted_values  = [values[i] for i in sorted_indices]
-
-    plt.rcParams['font.size'] = 10
-
-    plt.figure(figsize=(8,5))
-    plt.bar(sorted_labels, sorted_values, color="skyblue")
-
-    plt.ylabel("Overpotential (eV)")
-    plt.xticks(rotation=45)
-    plt.savefig("bar_plot.png", dpi=300, bbox_inches="tight")
-    plt.show()
-
-
 if __name__ == "__main__":
-    import sys
     import os
     import glob
     from ase.io import read
     import logging
     import argparse
+    from kinetics.microkinetics.utils import make_barplot
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--dirname", type=str, default="0")
@@ -129,16 +83,13 @@ if __name__ == "__main__":
     start = args.start
     end = args.end
 
-    logging.basicConfig(level=logging.INFO, 
-                        format="%(asctime)s %(levelname)s %(name)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S",
-                        handlers=[logging.StreamHandler(sys.stdout)])
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+                        datefmt="%Y-%m-%d %H:%M:%S", handlers=[logging.StreamHandler(sys.stdout)])
 
     logger = logging.getLogger(__name__)
-
-    loop_over_directory = True
-
     logger.info("Start calculation")
 
+    loop_over_directory = True
     if loop_over_directory:
         # directory = "/ABO3_cif_large/"
         # directory = "/ABO3_cif/"
@@ -172,21 +123,20 @@ if __name__ == "__main__":
             else:
                 logger.info(f"failed for {material}")
 
-        make_barplot(labels=materials, values=etas, threshold=1000)
-
     else:
         cif_file = "CaMn2O4_ICSD_CollCode280514.cif"
-        # cif_file = "ICSD_CollCode35218_CaMnO3.cif"
 
-        if not os.path.isfile(cif_file): logger.info(f"Could not found file: {cif_file}")
+        if not os.path.isfile(cif_file):
+          logger.info(f"Could not found file: {cif_file}")
 
-        eta = get_overpotential_for_cif(cif_file=cif_file)
+        eta = get_overpotential_for_cif(cif_file=cif_file, dirname=dirname)
+        material = os.path.basename(cif_file).split("_")[1].split(".")[0]
 
-        basename = os.path.basename(cif_file)
         if eta is None:
-            logger.info(f"failed for {basename}")
+            logger.info(f"failed for {material}")
         else:
-            logger.info(f"file = {basename:26.24s}, eta = {eta:5.3f} eV")
+            logger.info(f"file = {material:16.14s}, eta = {eta:5.3f} eV")
 
+    make_barplot(labels=materials, values=etas, threshold=1000)
+    
     logger.info("All done")
-

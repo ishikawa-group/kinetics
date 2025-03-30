@@ -995,3 +995,57 @@ def mirror_invert(atoms, direction="x"):
     atoms.set_cell(cell)
 
     return atoms
+
+def make_barplot(labels=None, values=None, threshold=100):
+    """
+    Make a bar plot of values with labels, filtering out values above the threshold.
+    
+    Args:
+        labels: List of labels for the x-axis
+        values: List of values for the y-axis
+        threshold: Maximum value to include in the plot
+    """
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    labels = [label for label, value in zip(labels, values) if value < threshold]
+    values = [value for value in values if value < threshold]
+
+    sorted_indices = np.argsort(values)
+    sorted_labels  = [labels[i] for i in sorted_indices]
+    sorted_values  = [values[i] for i in sorted_indices]
+
+    plt.rcParams['font.size'] = 10
+
+    plt.figure(figsize=(8,5))
+    plt.bar(sorted_labels, sorted_values, color="skyblue")
+
+    plt.ylabel("Overpotential (eV)")
+    plt.xticks(rotation=45)
+    plt.savefig("bar_plot.png", dpi=300, bbox_inches="tight")
+
+
+def add_data_to_jsonfile(jsonfile, data):
+    """
+    add data to database
+    """
+    import json
+    import os
+
+    if not os.path.exists(jsonfile):
+        with open(jsonfile, "w") as f:
+            json.dump([], f)
+
+    with open(jsonfile, "r") as f:
+        datum = json.load(f)
+
+        # remove "doing" record as calculation is done
+        for i in range(len(datum)):
+            if datum[i]["status"] == "doing":
+                datum.pop(i)
+                break
+
+        datum.append(data)
+
+    with open(jsonfile, "w") as f:
+        json.dump(datum, f, indent=4)
