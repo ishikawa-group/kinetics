@@ -1,3 +1,7 @@
+import warnings
+warnings.filterwarnings("ignore")
+
+
 def register(db=None, atoms=None, data=None):
     formula = atoms.get_chemical_formula()
 
@@ -84,7 +88,7 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
 
     # load molecule collection
     package_dir = Path(__file__).resolve().parent
-    database_path = package_dir / "g2plus.json"
+    database_path = package_dir / "data" / "g2plus.json"
     if database_path.exists():
         database = connect(database_path)
     else:
