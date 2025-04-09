@@ -875,7 +875,6 @@ def fix_lower_surface(atoms, adjust_layer=None):
         adjust_layer (list): List of element-wise layers to adjust fixing. Positive means more layers are fixed.
     """
     from ase.constraints import FixAtoms
-    from ase.visualize import view
 
     newatoms = atoms.copy()
     newatoms = sort_atoms_by(newatoms, xyz="z")  # sort
@@ -996,10 +995,11 @@ def mirror_invert(atoms, direction="x"):
 
     return atoms
 
-def make_barplot(labels=None, values=None, threshold=100):
+
+def make_barplot(labels=None, values=None, threshold=100, ylabel="Overpotential", filename="bar_plot.png"):
     """
     Make a bar plot of values with labels, filtering out values above the threshold.
-    
+
     Args:
         labels: List of labels for the x-axis
         values: List of values for the y-axis
@@ -1015,14 +1015,14 @@ def make_barplot(labels=None, values=None, threshold=100):
     sorted_labels  = [labels[i] for i in sorted_indices]
     sorted_values  = [values[i] for i in sorted_indices]
 
-    plt.rcParams['font.size'] = 10
+    plt.rcParams["font.size"] = 10
 
-    plt.figure(figsize=(8,5))
+    plt.figure(figsize=(8, 5))
     plt.bar(sorted_labels, sorted_values, color="skyblue")
 
-    plt.ylabel("Overpotential (eV)")
+    plt.ylabel(ylabel)
     plt.xticks(rotation=45)
-    plt.savefig("bar_plot.png", dpi=300, bbox_inches="tight")
+    plt.savefig(filename, dpi=300, bbox_inches="tight")
 
 
 def add_data_to_jsonfile(jsonfile, data):
