@@ -996,7 +996,8 @@ def mirror_invert(atoms, direction="x"):
     return atoms
 
 
-def make_barplot(labels=None, values=None, threshold=100, ylabel="Overpotential", filename="bar_plot.png"):
+def make_barplot(labels=None, values=None, threshold=100, ylabel="Overpotential",
+                 fontsize=10, filename="bar_plot.png"):
     """
     Make a bar plot of values with labels, filtering out values above the threshold.
 
@@ -1015,7 +1016,7 @@ def make_barplot(labels=None, values=None, threshold=100, ylabel="Overpotential"
     sorted_labels  = [labels[i] for i in sorted_indices]
     sorted_values  = [values[i] for i in sorted_indices]
 
-    plt.rcParams["font.size"] = 10
+    plt.rcParams["font.size"] = fontsize
 
     plt.figure(figsize=(8, 5))
     plt.bar(sorted_labels, sorted_values, color="skyblue")
