@@ -1,19 +1,16 @@
-import numpy as np
-import json
 import uuid
 import sys
 import os
 import glob
 import argparse
 import logging
-from ase.io import read
-from ase.visualize import view
 from kinetics.microkinetics.utils import (
     make_surface_from_cif, remove_layers, replace_element,
     fix_lower_surface, sort_atoms_by_z, add_data_to_jsonfile, make_barplot
 )
 from kinetics.microkinetics.get_reaction_energy import get_reaction_energy
-from kinetics.microkinetics.orr_and_oer import get_overpotential_oer_orr 
+from kinetics.microkinetics.orr_and_oer import get_overpotential_oer_orr
+
 
 def get_overpotential_for_cif(cif_file=None, dirname=None):
     # replace_percent = 0
@@ -44,9 +41,9 @@ def get_overpotential_for_cif(cif_file=None, dirname=None):
 
     calculator = "m3gnet"
 
-    deltaEs = get_reaction_energy(reaction_file=reaction_file, surface=surface, calculator=calculator, 
+    deltaEs = get_reaction_energy(reaction_file=reaction_file, surface=surface, calculator=calculator,
                                   input_yaml="tmp.yaml", verbose=True, dirname=dirname)
-    eta = get_overpotential_oer_orr(reaction_file=reaction_file, deltaEs=deltaEs, 
+    eta = get_overpotential_oer_orr(reaction_file=reaction_file, deltaEs=deltaEs,
                                     reaction_type="orr", verbose=True, energy_shift=energy_shift)
 
     # Save results
@@ -87,10 +84,10 @@ if __name__ == "__main__":
 
     if directory is not None:  # Directory mode
         cif_files = sorted(glob.glob(os.getcwd() + directory + "*.cif"))
-        
+
         end = args.end if args.end is not None else len(cif_files)
         logger.info(f"Found {len(cif_files)} files, and do calculation from {args.start} to {end}.")
-        
+
         for cif_file in cif_files[args.start:end]:
             if not os.path.isfile(cif_file):
                 logger.info(f"Could not found file: {cif_file}")

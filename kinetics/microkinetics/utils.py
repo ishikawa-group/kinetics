@@ -576,7 +576,7 @@ def make_surface_from_cif(cif_file, indices=[1, 0, 0], repeat=[1, 1, 1], vacuum=
     return surf
 
 
-def replace_element(atoms, from_element, to_element, percent=100):
+def replace_element(atoms, from_element: str, to_element: str, percent=100):
     import random
 
     from ase.build import sort

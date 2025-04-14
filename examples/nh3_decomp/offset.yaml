@@ -1,0 +1,11 @@
+# ABO3, 1x1x1
+# offset: [1.0, 1.0]
+# height: 1.7  
+
+# ABO3, 2x2x1
+# offset: [0.5, 0.5]
+# height: 1.7
+
+# fcc111, 3x3x4
+offset: [0.44, 0.44]
+height: 1.7
