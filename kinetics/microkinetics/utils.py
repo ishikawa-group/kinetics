@@ -1032,6 +1032,100 @@ def make_barplot(labels=None, values=None, threshold=100, ylabel="y-value",
     plt.savefig(filename, dpi=300, bbox_inches="tight")
 
 
+def make_energy_diagram(deltaEs=None, has_barrier=False, rds=1, savefig=True, figname="ped.png", xticklabels=None):
+    """Generate potential energy diagram for reaction steps.
+
+    Args:
+        deltaEs (list or numpy.ndarray): Energy differences between reaction steps
+        has_barrier (bool, optional): Include transition state barrier. Defaults to False.
+        rds (int, optional): Index of rate determining step for barrier calculation. Defaults to 1.
+        savefig (bool, optional): Save the figure to a file. Defaults to True.
+        figname (str, optional): Output filename. Defaults to "ped.png".
+        xticklabels (list, optional): Labels for reaction steps. Defaults to None.
+
+    Returns:
+        tuple: Plot data (x coordinates array, y coordinates array)
+
+    Note:
+        When has_barrier is True, the function calculates transition state barrier
+        using Brønsted-Evans-Polanyi (BEP) relationship:
+        Ea = alpha * deltaE + beta
+        where alpha = 0.87 and beta = 1.34
+    """
+    import numpy as np
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    from scipy import interpolate
+
+    # Convert input to numpy array
+    deltaEs = np.array(deltaEs)
+    num_rxn = len(deltaEs)
+
+    # Calculate cumulative energies
+    ped = np.zeros(1)
+    for i in range(num_rxn):
+        ped = np.append(ped, ped[-1] + deltaEs[i])
+
+    y1 = ped
+
+    # Handle transition state barriers using BEP relationship
+    if has_barrier:
+        alpha = 0.87  # BEP parameters
+        beta = 1.34
+        Ea = y1[rds] * alpha + beta  # Calculate barrier height
+
+        # Extend x length after transition state curve
+        y1 = np.insert(y1, rds, y1[rds])
+        num_rxn += 1
+
+    # Generate interpolation coordinates
+    points = 500  # Number of points for smooth curve
+    x1_latent = np.linspace(-0.5, num_rxn + 0.5, points)
+    x1 = np.arange(0, num_rxn + 1)
+    f1 = interpolate.interp1d(x1, y1, kind="nearest", fill_value="extrapolate")
+
+    # Replace rate determining step by quadratic curve for barrier
+    if has_barrier:
+        x2 = [rds - 0.5, rds, rds + 0.5]
+        x2 = np.array(x2)
+        y2 = np.array([y1[rds-1], Ea, y1[rds+1]])
+        f2 = interpolate.interp1d(x2, y2, kind="quadratic")
+
+    # Combine nearest neighbor interpolation with barrier curve
+    y = np.array([])
+    for i in x1_latent:
+        val1 = f1(i)
+        val2 = -1.0e10
+        if has_barrier:
+            val2 = f2(i)
+        y = np.append(y, max(val1, val2))
+
+    # Generate and save the plot
+    if savefig:
+        # Set plot style
+        sns.set(style="darkgrid", rc={"lines.linewidth": 2.0, "figure.figsize": (10, 4)})
+
+        # Create plot
+        p = sns.lineplot(x=x1_latent, y=y, sizes=(0.5, 1.0))
+
+        # Set labels and font sizes
+        p.set_xlabel("Steps", fontsize=16)
+        p.set_ylabel("Energy (eV)", fontsize=16)
+        p.tick_params(axis="both", labelsize=14)
+        p.yaxis.set_major_formatter(lambda x, p: f"{x:.1f}")
+
+        # Set x-axis labels if provided
+        if xticklabels is not None:
+            xticklabels.insert(0, "dummy")
+            p.set_xticklabels(xticklabels, rotation=45, ha="right")
+
+        # Adjust layout and save
+        plt.tight_layout()
+        plt.savefig(figname)
+
+    return x1_latent, y
+
+
 def add_data_to_jsonfile(jsonfile, data):
     """
     add data to database
