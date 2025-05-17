@@ -85,7 +85,7 @@ def get_overpotential_oer_orr(reaction_file, deltaEs, T=298.15, reaction_type="o
         # phi = 1.165  # equilibrium potential, 4.661/4, from Wang's paper
         phi = 1.0288
         deltaGs_sum = [0.0,
-                       deltaGs[0], 
+                       deltaGs[0],
                        deltaGs[0] + deltaGs[1],
                        deltaGs[0] + deltaGs[1] + deltaGs[2],
                        deltaGs[0] + deltaGs[1] + deltaGs[2] + deltaGs[3]]
@@ -93,7 +93,7 @@ def get_overpotential_oer_orr(reaction_file, deltaEs, T=298.15, reaction_type="o
         deltaGs_eq = [deltaGs_sum[0], deltaGs_sum[1] + phi, deltaGs_sum[2] + 2*phi, deltaGs_sum[3] + 3*phi, deltaGs_sum[4] + 4*phi]
         diffG = [deltaGs_eq[1] - deltaGs_eq[0], deltaGs_eq[2] - deltaGs_eq[1], deltaGs_eq[3] - deltaGs_eq[2], deltaGs_eq[4] - deltaGs_eq[3]]
         eta = np.max(diffG)
-             
+
     if verbose:
         logger.info(f"deltaGs = {np.array(deltaGs)}")
         logger.info(f"deltaGs_eq = {np.array(deltaGs_eq)}")
@@ -106,4 +106,24 @@ def get_overpotential_oer_orr(reaction_file, deltaEs, T=298.15, reaction_type="o
     plt.savefig(fig_name)
 
     eta = np.abs(eta)
+    return eta
+
+
+def get_overpotential_for_cif(cif_file=None, reaction_file=None, dirname=None, energy_shift=None,
+                              calculator="m3gnet", reaction_type="orr"):
+    repeat = [2, 2, 2]
+    vacuum = 6.5
+
+    surface = make_surface_from_cif(cif_file, indices=[0, 0, 1], repeat=repeat, vacuum=vacuum)
+
+    surface, count = sort_atoms_by_z(surface)
+    lowest_z = surface[0].position[2]
+    surface.translate([0, 0, -lowest_z + 0.1])
+
+    surface = fix_lower_surface(surface)
+
+    deltaEs = get_reaction_energy(reaction_file=reaction_file, surface=surface, calculator=calculator,
+                                  input_yaml="tmp.yaml", dirname=dirname)
+    eta = get_overpotential_oer_orr(reaction_file=reaction_file, deltaEs=deltaEs,
+                                    reaction_type=reaction_type, energy_shift=energy_shift)
     return eta
