@@ -1,3 +1,6 @@
+from .utils import make_surface_from_cif, sort_atoms_by_z, fix_lower_surface
+from .get_reaction_energy import get_reaction_energy
+
 def get_overpotential_oer_orr(reaction_file, deltaEs, T=298.15, reaction_type="oer", energy_shift=None, verbose=False):
     """
     Calculate overpotential for OER or ORR.
@@ -123,7 +126,7 @@ def get_overpotential_for_cif(cif_file=None, reaction_file=None, dirname=None, e
     surface = fix_lower_surface(surface)
 
     deltaEs = get_reaction_energy(reaction_file=reaction_file, surface=surface, calculator=calculator,
-                                  input_yaml="tmp.yaml", dirname=dirname)
+                                  input_yaml="tmp.yaml")
     eta = get_overpotential_oer_orr(reaction_file=reaction_file, deltaEs=deltaEs,
                                     reaction_type=reaction_type, energy_shift=energy_shift)
     return eta

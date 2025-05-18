@@ -57,7 +57,7 @@ def optimize_geometry(atoms=None, steps=30):
     return atoms_
 
 
-def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt", input_yaml=None, verbose=False, dirname=""):
+def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt", input_yaml=None, verbose=False, dirname="work"):
     """
     Calculate reaction energy for each reaction.
     """
@@ -118,7 +118,7 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
         calc_mol  = set_vasp_calculator(atom_type="molecule", input_yaml=input_yaml, do_optimization=True, dfttype=dfttype)
         calc_surf = set_vasp_calculator(atom_type="surface", input_yaml=input_yaml, do_optimization=True, dfttype=dfttype)
 
-    elif "m3gnet" in calculator:        
+    elif "m3gnet" in calculator:
         import matgl
         from matgl.ext.ase import PESCalculator
 
