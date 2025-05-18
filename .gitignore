@@ -2,6 +2,7 @@
 work*
 tmp*
 
+*.traj
 *.png
 *.e[0-9]*
 *.o[0-9]*
