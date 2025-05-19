@@ -83,10 +83,21 @@ def get_overpotential_oer_orr(reaction_file, deltaEs, T=298.15, reaction_type="o
     if verbose:
         logger.info(f"max of deltaGs = {np.max(deltaGs):5.3f} eV")
 
-    # ORR
     if reaction_type == "orr":
         # phi = 1.165  # equilibrium potential, 4.661/4, from Wang's paper
         phi = 1.0288
+        deltaGs_sum = [0.0,
+                       deltaGs[0],
+                       deltaGs[0] + deltaGs[1],
+                       deltaGs[0] + deltaGs[1] + deltaGs[2],
+                       deltaGs[0] + deltaGs[1] + deltaGs[2] + deltaGs[3]]
+
+        deltaGs_eq = [deltaGs_sum[0], deltaGs_sum[1] + phi, deltaGs_sum[2] + 2*phi, deltaGs_sum[3] + 3*phi, deltaGs_sum[4] + 4*phi]
+        diffG = [deltaGs_eq[1] - deltaGs_eq[0], deltaGs_eq[2] - deltaGs_eq[1], deltaGs_eq[3] - deltaGs_eq[2], deltaGs_eq[4] - deltaGs_eq[3]]
+        eta = np.max(diffG)
+
+    elif reaction_type == "oer":
+        phi = 1.23
         deltaGs_sum = [0.0,
                        deltaGs[0],
                        deltaGs[0] + deltaGs[1],

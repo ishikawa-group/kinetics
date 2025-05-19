@@ -1,0 +1,93 @@
+# VASP calculation parameters
+
+# Atom type specific settings
+molecule:
+  kpts: [1, 1, 1]
+  ismear: 0
+  sigma: 0.05
+  lreal: true
+  ldipol: false
+  idipol: null
+
+surface:
+  kpts: [1, 1, 1]  # now using kspacing
+  ismear: 1
+  sigma: 0.1
+  lreal: true
+  ldipol: true
+  idipol: 3
+
+solid:
+  kpts: [1, 1, 1]
+  ismear: 0
+  sigma: 0.2
+  lreal: false
+  ldipol: false
+  idipol: null
+
+# Common settings
+common:
+  xc: "pbe"
+  encut: 450.0
+  ediff: 1.0e-4
+  ediffg: -40.0e-2
+  lorbit: 10
+  algo: "Normal"
+  nelm: 30
+  nelmin: 3
+  npar: 2
+  nsim: 2
+  ispin: 2
+  isym: 0
+  kgamma: true
+  lasph: false
+  lwave: false
+  lcharg: false
+  kspacing: 0.7
+
+# Mixing parameters
+mixing:
+  amix: 0.4
+  amix_mag: 1.6
+  bmix: 1.0
+  bmix_mag: 1.0
+
+# DFT+U settings
+dft_plus_u:
+  ldau: true
+  lasph: true
+  ldautype: 2
+  u_param_file: "data/u_parameter.json"
+
+# Geometry optimization settings
+optimization:
+  enabled:
+    ibrion: 2
+    potim: 0.1
+    nsw: 2
+  disabled:
+    ibrion: 0
+    potim: 0.0
+    nsw: 0
+
+# Special setups for specific elements
+setups:
+  Ca: "_sv"
+  K: "_sv"
+  Ba: "_sv"
+  Cr: "_sv"
+  Mn: "_sv"
+  Fe: "_sv"
+  Cs: "_sv"
+  Rb: "_sv"
+  Sr: "_sv"
+  Er: "_3"
+  Y: "_sv"
+  Zr: "_sv"
+  Dy: "_3"
+  Sm: "_3"
+  Pa: "_s"
+  Tm: "_3"
+  Nd: "_3"
+  Ho: "_3"
+  Nb: "_sv"
