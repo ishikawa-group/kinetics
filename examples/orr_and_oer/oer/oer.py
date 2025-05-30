@@ -108,7 +108,7 @@ if __name__ == "__main__":
     # surface model parameters
     repeat = [2, 2, 2]
     vacuum = 6.5
-    max_sample = 20
+    max_sample = 100
 
     materials = []
     etas = []
@@ -122,7 +122,9 @@ if __name__ == "__main__":
     # directory = "/ABO3_cif/"
     # directory = "/ABO3_Mn_cif/"
 
-    if directory is not None:  # Directory mode
+    if directory is None:  # single file
+        cif_files = ["CaMn2O4_ICSD_CollCode280514.cif"]
+    else:
         cif_files = sorted(glob.glob(os.getcwd() + directory + "*.cif"))
         cif_files = random.sample(cif_files, min(len(cif_files), max_sample))
 
@@ -153,32 +155,5 @@ if __name__ == "__main__":
                 logger.info(f"failed for {material}")
 
         make_barplot(labels=materials, values=etas, threshold=1000)
-
-    else:  # Single file mode
-        cif_file = "CaMn2O4_ICSD_CollCode280514.cif"
-        bulk = read(cif_file)
-
-        if not os.path.isfile(cif_file):
-            raise ValueError(f"Could not found file: {cif_file}")
-
-        logger.info(f"Calculating {cif_file}")
-        material = os.path.basename(cif_file).split("_")[1].split(".")[0]
-
-        surface = make_surface_from_cif(cif_file, indices=[0, 0, 1], repeat=repeat, vacuum=vacuum)
-
-        # descriptors
-        formula = surface.get_chemical_formula()
-        cell_volume = bulk.get_volume()  # volume of the bulk unit cell
-        s_electrons, p_electrons, d_electrons, f_electrons = get_spdf_electrons(surface)
-
-        eta = get_overpotential_for_atoms(surface=surface, calculator=calculator,
-                                          reaction_type="oer", reaction_file=reaction_file)
-
-        if eta is None:
-            logger.info(f"failed for {material}")
-        else:
-            logger.info(f"file = {material:16.14s}, eta = {eta:5.3f} eV")
-            write_to_csv(csv_file, [formula, cell_volume, s_electrons, p_electrons,
-                                    d_electrons, f_electrons, min_M_O_distance, eta])
 
     logger.info("All done")
