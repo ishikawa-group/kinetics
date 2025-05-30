@@ -47,7 +47,7 @@ def optimize_geometry(atoms=None, steps=30):
         try:
             atoms_.get_potential_energy()
         except:
-            logger.info("Error at VASP")
+            logger.info("Error at VASP 1")
     else:
         name = atoms_.get_chemical_formula()
         trajectory = name + ".traj"
@@ -57,7 +57,8 @@ def optimize_geometry(atoms=None, steps=30):
     return atoms_
 
 
-def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt", input_yaml=None, verbose=False, dirname="work"):
+def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt", input_yaml=None,
+                        verbose=False, dirname="work"):
     """
     Calculate reaction energy for each reaction.
     """
@@ -65,16 +66,16 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
     import numpy as np
     import copy
     import yaml
+    import torch
     from ase.build import add_adsorbate
-    from ase.calculators.emt import EMT
     from ase.db import connect
     from ase.visualize import view
     from ase.io import write
-    from kinetics.microkinetics.utils import get_adsorbate_type
-    from kinetics.microkinetics.utils import get_number_of_reaction
-    from kinetics.microkinetics.utils import get_reac_and_prod
-    from kinetics.microkinetics.vasp import set_vasp_calculator
-    from kinetics.microkinetics.vasp import set_lmaxmix
+    from .utils import get_adsorbate_type
+    from .utils import get_number_of_reaction
+    from .utils import get_reac_and_prod
+    from .vasp import set_vasp_calculator
+    from .vasp import set_lmaxmix
     from ase.build import bulk
     import logging
 
@@ -104,8 +105,9 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
     calculator = calculator.lower()
 
     if "emt" in calculator:
+        from ase.calculators.emt import EMT
         logger.info("EMT calculator is used.")
-        calc_mol  = EMT()
+        calc_mol = EMT()
         calc_surf = EMT()
 
     elif "vasp" in calculator:
@@ -115,16 +117,25 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
             vasp_params = yaml.safe_load(f)
             dfttype = vasp_params["dfttype"]
 
-        calc_mol  = set_vasp_calculator(atom_type="molecule", input_yaml=input_yaml, do_optimization=True, dfttype=dfttype)
-        calc_surf = set_vasp_calculator(atom_type="surface", input_yaml=input_yaml, do_optimization=True, dfttype=dfttype)
+        calc_mol = set_vasp_calculator(atom_type="molecule", input_yaml=input_yaml, do_optimization=True,
+                                       dfttype=dfttype)
+        calc_surf = set_vasp_calculator(atom_type="surface", input_yaml=input_yaml, do_optimization=True,
+                                        dfttype=dfttype)
 
     elif "m3gnet" in calculator:
         import matgl
         from matgl.ext.ase import PESCalculator
 
         potential = matgl.load_model("M3GNet-MP-2021.2.8-PES")
-        calc_mol  = PESCalculator(potential=potential)
+        calc_mol = PESCalculator(potential=potential)
         calc_surf = PESCalculator(potential=potential)
+
+    elif "mattersim" in calculator:
+        from mattersim.forcefield.potential import MatterSimCalculator
+
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        calc_mol = MatterSimCalculator(load_path="MatterSim-v1.0.0-5M.pth", device=device)
+        calc_surf = MatterSimCalculator(load_path="MatterSim-v1.0.0-5M.pth", device=device)
 
     else:
         raise ValueError("Choose from emt, vasp, ocp.")
@@ -153,7 +164,7 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
                               "NH", "HN",
                               "NH2", "H2N",
                               "NH3", "H3N",
-                             ]
+                              ]
 
     # magnetic elements -- magmom up for these elements
     magnetic_elements = ["Cr", "Mn", "Fe", "Co", "Ni"]
@@ -171,9 +182,9 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
               "HN": 1623.563, "NH": 1623.563,
               "H2N": 4008.9, "NH2": 4008.9,
               "H3N": 7214.5, "NH3": 7214.5,
-             }
+              }
     for key, value in zpe_cm.items():
-        zpe.update({key: value*cm_to_eV})
+        zpe.update({key: value * cm_to_eV})
 
     for irxn in range(rxn_num):
         energies = {"reactant": 0.0, "product": 0.0}
@@ -278,10 +289,14 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
 
                     try:
                         energy = atoms.get_potential_energy()
+                    except Exception:
+                        logger.info("Energy calculation error")
+                        raise ValueError
+
+                    try:
                         register(db=tmpdb, atoms=atoms, data={"energy": energy})
-                    except:
-                        logger.info("Error at VASP")
-                        return None
+                    except Exception:
+                        logger.warning(f"Failed to write to {tmpdb}")
 
                 # add zpe for gaseous molecule
                 if add_zpe_here:
@@ -289,11 +304,11 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
                         zpe_value = zpe[mol[0]]
                         energy += zpe_value
 
-                E += coefs[imol]*energy
+                E += coefs[imol] * energy
 
             energies[side] = E
 
-        deltaE  = energies["product"] - energies["reactant"]
+        deltaE = energies["product"] - energies["reactant"]
         deltaEs = np.append(deltaEs, deltaE)
 
     # loop over reaction - done

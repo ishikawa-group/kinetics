@@ -559,7 +559,11 @@ def get_adsorbate_type(adsorbate, site):
     return ads_type
 
 
-def make_surface_from_cif(cif_file, indices=[1, 0, 0], repeat=[1, 1, 1], vacuum=10.0):
+def make_surface_from_cif(
+        cif_file: str,
+        indices: list=[1, 0, 0],
+        repeat: list=[1, 1, 1],
+        vacuum: float=10.0) -> Atoms:
     """
     Make a surface from a CIF file.
     """
