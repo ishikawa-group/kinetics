@@ -141,6 +141,7 @@ def get_overpotential_for_atoms(
         energy_shift=None,
         calculator="m3gnet",
         reaction_type="orr") -> float:
+
     surface, count = sort_atoms_by_z(surface)
     lowest_z = surface[0].position[2]
     surface.translate([0, 0, -lowest_z + 0.1])
