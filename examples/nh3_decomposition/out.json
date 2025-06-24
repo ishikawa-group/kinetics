@@ -1,0 +1,17 @@
+[
+  {
+    "unique_id": "bb15513204cb52264b38a5a1e06020d3",
+    "bottom_deltaE": -1.8928966522216797,
+    "chemical_formula": "Ni40Pt24"
+  },
+  {
+    "unique_id": "a8a39dd4f700a3b9b719d0cc8c0b5b1f",
+    "bottom_deltaE": -4.00697135925293,
+    "chemical_formula": "Ni61Pt3"
+  },
+  {
+    "unique_id": "1eb712271cc32a8eec1ada5a414b8098",
+    "bottom_deltaE": -2.3714733123779297,
+    "chemical_formula": "Ni12Pt52"
+  }
+]

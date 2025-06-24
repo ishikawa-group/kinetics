@@ -46,7 +46,7 @@ def optimize_geometry(atoms=None, steps=30):
     if "vasp" in atoms_.calc.name:
         try:
             atoms_.get_potential_energy()
-        except:
+        except Exception as e:
             logger.info("Error at VASP 1")
     else:
         name = atoms_.get_chemical_formula()
@@ -140,8 +140,8 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
     else:
         raise ValueError("Choose from emt, vasp, ocp.")
 
-    # load offset from "offset.yaml"
-    with open("offset.yaml") as f:
+    # load adsorbate position from "adsorbate.yaml"
+    with open("adsorbate.yaml") as f:
         ads_params = yaml.safe_load(f)
         offset = ads_params["offset"]
         height = ads_params["height"]
@@ -250,7 +250,7 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
 
                     if first:
                         formula = surf_.get_chemical_formula()
-                        work_dir = Path("work_" + dirname) / formula
+                        work_dir = Path(dirname) / formula
                         work_dir.mkdir(parents=True, exist_ok=True)
                         surf_.calc = calc_surf
                         surf_.calc.directory = str(work_dir)
@@ -278,10 +278,12 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
                 if first:
                     if verbose:
                         logger.info(f"Calculating {formula}")
-                        write(atoms.get_chemical_formula() + ".png", atoms)
 
-                    work_dir = Path("work_" + dirname) / formula
+                    work_dir = Path(dirname) / formula
                     work_dir.mkdir(parents=True, exist_ok=True)
+                    pngfile = work_dir / Path(atoms.get_chemical_formula() + ".png")
+                    write(pngfile, atoms)
+
                     atoms.calc.directory = str(work_dir)
 
                     if "vasp" in calculator and "plus" in dfttype:
