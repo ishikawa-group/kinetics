@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "kinetics"
-version = "0.0.1"
+version = "0.1.0"
 authors = [
   {name = "Yang Long", email = "yang.l.al@m.titech.ac.jp"},
   {name = "Atsushi Ishikawa", email = "ishikawa.a.ai@m.titech.ac.jp"},
