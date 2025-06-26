@@ -32,7 +32,7 @@ def get_past_energy(db=None, atoms=None):
         return energy, first
 
 
-def optimize_geometry(atoms=None, steps=30):
+def optimize_geometry(atoms=None, steps=100):
     import copy
     from ase.optimize import FIRE
     import logging
@@ -122,20 +122,45 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
         calc_surf = set_vasp_calculator(atom_type="surface", input_yaml=input_yaml, do_optimization=True,
                                         dfttype=dfttype)
 
-    elif "m3gnet" in calculator:
-        import matgl
-        from matgl.ext.ase import PESCalculator
+    # elif "m3gnet" in calculator:
+    #    import matgl
+    #    from matgl.ext.ase import PESCalculator
+    #
+    #    potential = matgl.load_model("M3GNet-MP-2021.2.8-PES")
+    #    calc_mol = PESCalculator(potential=potential)
+    #    calc_surf = PESCalculator(potential=potential)
+    #
+    # elif "mattersim" in calculator:
+    #    from mattersim.forcefield.potential import MatterSimCalculator
+    #
+    #    device = "cuda" if torch.cuda.is_available() else "cpu"
+    #    calc_mol = MatterSimCalculator(load_path="MatterSim-v1.0.0-5M.pth", device=device)
+    #    calc_surf = MatterSimCalculator(load_path="MatterSim-v1.0.0-5M.pth", device=device)
+    #
+    # elif "chgnet" in calculator:
+    #   from chgnet.model.dynamics import CHGNetCalculator
+    #   from chgnet.model.model import CHGNet
+    #
+    #   chgnet = CHGNet.load()
+    #   calc_mol  = CHGNetCalculator(potential=chgnet, properties="energy")
+    #   calc_surf = CHGNetCalculator(potential=chgnet, properties="energy")
+    #
+    # elif "sevennet" in calculator:
+    #   from sevenn.calculator import SevenNetCalculator
+    #   calc_mol  = SevenNetCalculator(model='7net-0', modal='mpa')
+    #   calc_surf = SevenNetCalculator(model='7net-0', modal='mpa')
 
-        potential = matgl.load_model("M3GNet-MP-2021.2.8-PES")
-        calc_mol = PESCalculator(potential=potential)
-        calc_surf = PESCalculator(potential=potential)
-
-    elif "mattersim" in calculator:
-        from mattersim.forcefield.potential import MatterSimCalculator
+    elif "mace" in calculator:
+        from mace.calculators import mace_mp
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        calc_mol = MatterSimCalculator(load_path="MatterSim-v1.0.0-5M.pth", device=device)
-        calc_surf = MatterSimCalculator(load_path="MatterSim-v1.0.0-5M.pth", device=device)
+        model = "https://github.com/ACEsuit/mace-foundations/releases/download/mace_matpes_0/MACE-matpes-r2scan-omat-ft.model"
+        mace_calculator = mace_mp(model=model, dispersion=False, default_dtype="float64", device=device)
+
+        calc_mol = mace_calculator
+        calc_surf = mace_calculator
+
+
 
     else:
         raise ValueError("Choose from emt, vasp, ocp.")

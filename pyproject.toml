@@ -13,9 +13,9 @@ requires-python = "<3.13"
 dependencies = [
     "ase~=3.24",
     "pymatgen>=2025.1.9",
-    "matgl==1.2.1",
     "pyyaml~=6.0",
     "pyqt5==5.15.11",
+    "mace-torch==0.3.13",
 ]
 
 [tool.setuptools.package-data]
