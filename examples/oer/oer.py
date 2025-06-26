@@ -13,7 +13,7 @@ from kinetics.microkinetics.orr_and_oer import get_overpotential_for_atoms
 from kinetics.microkinetics.utils import make_surface_from_cif, make_barplot
 
 # Load electron configuration data from YAML file
-with open("electron_numbers.yaml", "r") as f:
+with open("../../data/electron_numbers.yaml", "r") as f:
     electron_data = yaml.safe_load(f)
 
     s_electron_dict = electron_data["s_electrons"]
