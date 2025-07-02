@@ -86,7 +86,7 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
     rxn_num = get_number_of_reaction(reaction_file)
 
     # load molecule collection
-    package_dir = Path(__file__).resolve().parent
+    package_dir = Path(__file__).resolve().parent.parent
     database_path = package_dir / "data" / "g2plus.json"
     if database_path.exists():
         database = connect(database_path)
