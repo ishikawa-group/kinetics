@@ -10,3 +10,4 @@ tmp*
 
 .envrc
 .venv
+.claude
