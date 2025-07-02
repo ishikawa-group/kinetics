@@ -160,10 +160,8 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
         calc_mol = mace_calculator
         calc_surf = mace_calculator
 
-
-
     else:
-        raise ValueError("Choose from emt, vasp, ocp.")
+        raise ValueError("Choose from emt, vasp, mace.")
 
     # load adsorbate position from "adsorbate.yaml"
     with open("adsorbate.yaml") as f:
