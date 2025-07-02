@@ -1,25 +1,22 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "kinetics"
 version = "0.1.0"
-authors = [
-  {name = "Yang Long", email = "yang.l.al@m.titech.ac.jp"},
-  {name = "Atsushi Ishikawa", email = "ishikawa.a.ai@m.titech.ac.jp"},
-]
 requires-python = "<3.13"
 dependencies = [
-    "ase~=3.24",
-    "pymatgen>=2025.1.9",
-    "pyyaml~=6.0",
-    "pyqt5==5.15.11",
-    "mace-torch==0.3.13",
+  "ase~=3.24",
+  "pymatgen>=2025.1.9",
+  "pyyaml~=6.0",
+  "pyqt5==5.15.11",
+  "mace-torch==0.3.13",
 ]
 
 [tool.setuptools]
 package-dir = {"" = "src"}
+include-package-data = true
 
 [tool.setuptools.packages.find]
 where = ["src"]
