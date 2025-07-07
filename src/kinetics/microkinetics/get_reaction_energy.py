@@ -71,11 +71,9 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
     from ase.db import connect
     from ase.visualize import view
     from ase.io import write
-    from .utils import get_adsorbate_type
-    from .utils import get_number_of_reaction
-    from .utils import get_reac_and_prod
-    from .vasp import set_vasp_calculator
-    from .vasp import set_lmaxmix
+    from kinetics.utils import get_adsorbate_type, get_number_of_reaction, get_reac_and_prod
+    from kinetics.vasp import set_vasp_calculator
+    from kinetics.vasp import set_lmaxmix
     from ase.build import bulk
     import logging
 
@@ -271,6 +269,7 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
                     # check whether the bare surface is calcualted before
                     surf_, first = get_past_atoms(db=tmpdb, atoms=surf_)
 
+                    # do setup for the first calculation
                     if first:
                         formula = surf_.get_chemical_formula()
                         work_dir = Path(dirname) / formula
@@ -296,6 +295,7 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
 
                 # setting atoms done
                 energy, first = get_past_energy(db=tmpdb, atoms=atoms)
+
                 formula = atoms.get_chemical_formula()
 
                 if first:

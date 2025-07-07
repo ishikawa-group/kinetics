@@ -5,3 +5,4 @@ rm *.png 2> /dev/null
 rm *.log 2> /dev/null
 rm *.traj 2> /dev/null
 rm surf.json 2> /dev/null
+rm opt_log.txt 2> /dev/null

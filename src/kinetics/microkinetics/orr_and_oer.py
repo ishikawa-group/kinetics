@@ -1,6 +1,7 @@
-from .utils import sort_atoms_by_z, fix_lower_surface
-from .get_reaction_energy import get_reaction_energy
+from kinetics.utils import sort_atoms_by_z, fix_lower_surface
+from kinetics.microkinetics.get_reaction_energy import get_reaction_energy
 from ase import Atoms
+from ase.visualize import view
 
 
 def get_overpotential_oer_orr(reaction_file, deltaEs, T=298.15, reaction_type="oer",
@@ -10,7 +11,7 @@ def get_overpotential_oer_orr(reaction_file, deltaEs, T=298.15, reaction_type="o
     """
     import numpy as np
     import matplotlib.pyplot as plt
-    from kinetics.microkinetics.utils import get_number_of_reaction
+    from kinetics.utils import get_number_of_reaction
     import logging
 
     logger = logging.getLogger(__name__)
@@ -147,10 +148,8 @@ def get_overpotential_for_atoms(
     surface.translate([0, 0, -lowest_z + 0.1])
 
     surface = fix_lower_surface(surface)
-
     deltaEs = get_reaction_energy(reaction_file=reaction_file, surface=surface, calculator=calculator,
                                   input_yaml="tmp.yaml")
-
     eta = get_overpotential_oer_orr(reaction_file=reaction_file, deltaEs=deltaEs,
                                     reaction_type=reaction_type, energy_shift=energy_shift)
     return eta

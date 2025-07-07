@@ -7,13 +7,15 @@ import argparse
 import logging
 import csv
 import yaml
+import subprocess
 from ase import Atoms
 from ase.io import read
 from kinetics.microkinetics.orr_and_oer import get_overpotential_for_atoms
-from kinetics.microkinetics.utils import make_surface_from_cif, make_barplot
+from kinetics.utils import make_surface_from_cif, make_barplot
+from ase.visualize import view
 
 # Load electron configuration data from YAML file
-with open("../../data/electron_numbers.yaml", "r") as f:
+with open("../../src/kinetics/data/electron_numbers.yaml", "r") as f:
     electron_data = yaml.safe_load(f)
 
     s_electron_dict = electron_data["s_electrons"]
@@ -75,6 +77,14 @@ if __name__ == "__main__":
     logger = logging.getLogger(__name__)
     logger.info("Start calculation")
 
+    # cleanup past calculation
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    clean_script = os.path.join(script_dir, "clean.sh")
+    try:
+        subprocess.run(["bash", clean_script])
+    except Exception as e:
+        logger.error(f"Failed to executre {clean_script}")
+
     # when writing to csv file
     csv_file = "output.csv"
     with open(csv_file, mode="w", newline="") as file:
@@ -87,6 +97,9 @@ if __name__ == "__main__":
     repeat = [2, 2, 2]
     vacuum = 7.0
     max_sample = 5
+
+    # set random seed for reproducibility
+    random.seed(0)
 
     materials = []
     etas = []
@@ -114,7 +127,7 @@ if __name__ == "__main__":
         eta = get_overpotential_for_atoms(surface=surface, calculator=calculator,
                                           reaction_type="oer", reaction_file=reaction_file)
 
-        # descriptors
+        # getting descriptors
         formula = surface.get_chemical_formula()
         cell_volume = bulk.get_volume()  # volume of the bulk unit cell
         s_electrons, p_electrons, d_electrons, f_electrons = get_spdf_electrons(surface)
