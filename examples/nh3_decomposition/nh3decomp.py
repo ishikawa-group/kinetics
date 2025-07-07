@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 from ase.db import connect
 from kinetics.microkinetics.get_reaction_energy import get_reaction_energy
+from kinetics.microkinetics.rate_nh3 import get_nh3_formation_rate
 
 
 def get_row_by_unique_id(db, unique_id):
@@ -54,7 +55,7 @@ if __name__ == "__main__":
     parser.add_argument("--base_dir", default="./result", help='計算用ベースディレクトリ')
     parser.add_argument("--overwrite", default=True, help='強制的に計算を実行')
     parser.add_argument("--log_level", default="INFO", help='ログレベル')
-    parser.add_argument("--calculator", default="m3gnet", help='計算機タイプ')
+    parser.add_argument("--calculator", default="mace", help='計算機タイプ')
     parser.add_argument("--yaml_path", help='VASP設定YAMLファイルパス')
     args = parser.parse_args()
 
@@ -80,7 +81,7 @@ if __name__ == "__main__":
     d = surf_atoms.info.pop("data", {})
     surf_atoms.info["adsorbate_info"] = d["adsorbate_info"]
 
-    reaction_file = "nh3_decomposition.txt"
+    reaction_file = "nh3decomposition.txt"
     energy_shift = [0] * 4
 
     # add vacuum region to surface
@@ -90,11 +91,12 @@ if __name__ == "__main__":
 
     deltaEs = get_reaction_energy(reaction_file=reaction_file, surface=surf_atoms,
                                   calculator=calculator, verbose=True, dirname="work")
-    print("deltaEs:", np.round(np.array(deltaEs), 3))
+    rate = get_nh3_formation_rate(deltaEs=deltaEs, reaction_file=reaction_file, rds=5)
 
     # Create result entry
     entry = {
         "unique_id": unique_id,
+        "rate": rate,
         "bottom_deltaE": np.min(deltaEs),
         "chemical_formula": surf_atoms.get_chemical_formula()
     }
@@ -109,4 +111,4 @@ if __name__ == "__main__":
 
     # Save and print results
     save_results(out_json, results)
-    print(f"Bottom of the deltaE curve: {np.min(deltaEs)}")
+    print(f"rate: {rate}")
