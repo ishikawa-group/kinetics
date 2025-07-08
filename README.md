@@ -17,6 +17,31 @@
 * Automatically generates surface models from CIF files and computes electronic descriptors.
 * Example code:`examples/oer/oer.py`
 
+#### Introduction
+* Here we consider the OER consists of following four elementary reactions.
+$$
+\begin{align*}
+\rm{H_2O + *}  &\rightarrow \rm{OH* + 1/2H_2}  \\
+\rm{OH*}       &\rightarrow \rm{O* + 1/2H_2}   \\
+\rm{O* + H_2O} &\rightarrow \rm{OOH* + 1/2H_2} \\
+\rm{OOH*}      &\rightarrow \rm{O_2 + * + 1/2H_2}
+\end{align*}
+$$
+* These reactions have following meanings:
+  1. Water adsorption and dissociation
+  2. OH dehydrogenation to O
+  3. Water oxidation to form OOH
+  4. O2 evolution
+* To calculate the proton and electron Gibbs energy, the computational hydrogen electrode (CHE) is assumed:
+$$
+G_{\rm H^+} + G_{\rm e^-} = \frac{1}{2}G_{\rm H_2}
+$$
+* The Gibbs energy change of these reactions ($\Delta G$) is calcualted.
+* The overpotential $\eta$ is calculated by taking the maximum $\Delta G$ of these, and subtracting equilibrium potential.
+$$
+\eta = \max\{\Delta G_1, \Delta G_2, \Delta G_3, \Delta G_4\} - U_0
+$$
+
 #### Key parameters
 * Important parameters are as follows, in the above example code.
 ```python
@@ -29,41 +54,45 @@ reaction_file = "oer.txt"  # OER reaction pathway definition
 
 #### Output Data
 * The script generates `output.csv` with columns:
-  - `formula`: Chemical formula of the surface
-  - `cell_volume`: Bulk unit cell volume
-  - `s_electrons`, `p_electrons`, `d_electrons`, `f_electrons`: Electronic descriptors
-  - `min_M_O_distance`: Minimum metal-oxygen distance
-  - `overpotential_in_eV`: Calculated OER overpotential
+  - `formula`: chemical formula of the surface
+  - `cell_volume`: bulk unit cell volume
+  - `s_electrons`, `p_electrons`, `d_electrons`, `f_electrons`: number of s-, p-, d-, and f-electrons
+  - `min_M_O_distance`: minimum metal-oxygen distance
+  - `overpotential_in_eV`: calculated OER overpotential
 
-#### Required Files:
+#### Required Files
 * CIF files (single or multiple).
 * `oer.txt`: OER reaction pathway definition
    ```
-   H2O + surf       --ads--> OH_fcc + 0.5*H2
-   OH_fcc           --LH-->  O_fcc + 0.5*H2
-   O_fcc + H2O      --LH-->  OOH_fcc + 0.5*H2
-   OOH_fcc          --LH-->  O2 + surf + 0.5*H2
+   H2O + surf     --ads--> OH_fcc + 0.5*H2
+   OH_fcc         --LH-->  O_fcc + 0.5*H2
+   O_fcc + H2O    --LH-->  OOH_fcc + 0.5*H2
+   OOH_fcc        --LH-->  O2 + surf + 0.5*H2
    ```
-   This represents the four-step OER mechanism:
-  1. Water adsorption and dissociation
-  2. OH dehydrogenation to O
-  3. Water oxidation to form OOH
-  4. O2 evolution
 
 
 ### 2. Oxygen reduction reaction (ORR)
 * Similar to the OER, the library provides function to calculate the overpotential of ORR.
 * Example code is `examples/orr/orr.py`.
 
+#### Introduction
+* Following elementary reactions are assumed.
+
+$$
+\begin{align*}
+\rm{O_2 + H^+ + e^-}  &\rightarrow  \rm{OOH*} \\
+\rm{OOH* + H^+ + e^-}  &\rightarrow \rm{O* + H_2O} \\
+\rm{O* + H^+ + e^-}  &\rightarrow \rm{OH*} \\
+\rm{OH* + H^+ + e^-}  &\rightarrow \rm{H_2O}
+\end{align*}
+$$
+* Likewise the OER, CHE is assumed to calculate the proton and electron Gibbs energy.
+
 #### Usage
 ```python
 from kinetics.microkinetics.orr_and_oer import get_overpotential_oer_orr
 
 # Reaction energies for each step (deltaEs)
-# 1. O2 + H+ + e- → OOH*
-# 2. OOH* + H+ + e- → O* + H2O
-# 3. O* + H+ + e- → OH*
-# 4. OH* + H+ + e- → H2O
 deltaEs = [1.0, 0.5, 0.3, 0.2]  # example values in eV
 
 overpotential = get_overpotential_oer_orr(
