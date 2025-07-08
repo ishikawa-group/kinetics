@@ -109,6 +109,12 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
         calc_surf = EMT()
 
     elif "vasp" in calculator:
+        # Check if input_yaml is None
+        if input_yaml is None:
+            msg = "Input_yaml is needed for VASP calculator."
+            logger.error(msg)
+            raise ValueError(msg)
+
         # Load dfttype parameter from YAML file
         with open(input_yaml) as f:
             logger.info(f"Reading {input_yaml}")

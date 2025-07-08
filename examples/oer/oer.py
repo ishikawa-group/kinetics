@@ -130,6 +130,7 @@ if __name__ == "__main__":
         material = os.path.basename(cif_file).split("_")[1].split(".")[0]
         surface = make_surface_from_cif(cif_file, indices=[0, 0, 1], repeat=repeat, vacuum=vacuum)
         eta = get_overpotential_for_atoms(surface=surface, calculator=calculator,
+                                          input_yaml="vasp.yaml",
                                           reaction_type="oer", reaction_file=reaction_file)
 
         # getting descriptors
