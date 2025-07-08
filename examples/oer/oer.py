@@ -77,6 +77,11 @@ if __name__ == "__main__":
     logger = logging.getLogger(__name__)
     logger.info("Start calculation")
 
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--max_sample", default=10, help="number of samples")
+    args = parser.parse_args()
+    max_sample = int(args.max_sample)
+
     # cleanup past calculation
     script_dir = os.path.dirname(os.path.abspath(__file__))
     clean_script = os.path.join(script_dir, "clean.sh")
@@ -96,7 +101,6 @@ if __name__ == "__main__":
     # surface model parameters
     repeat = [2, 2, 2]
     vacuum = 7.0
-    max_sample = 5
 
     # set random seed for reproducibility
     random.seed(0)
