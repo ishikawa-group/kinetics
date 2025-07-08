@@ -79,8 +79,10 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--max_sample", default=10, help="number of samples")
+    parser.add_argument("--calculator", default="mace", help="energy calculator")
     args = parser.parse_args()
     max_sample = int(args.max_sample)
+    calculator = args.calculator
 
     # cleanup past calculation
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -111,7 +113,6 @@ if __name__ == "__main__":
     reaction_file = "oer.txt"
     # energy_shift = [-0.32, -0.54, -0.47, -0.75]
     energy_shift = [0, 0, 0, -4.92]
-    calculator = "mace"  # ( "vasp" | "mace" )
 
     directory = "/ABO3_cif_large/"
     # directory = "/ABO3_cif/"
