@@ -119,7 +119,8 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
         with open(input_yaml) as f:
             logger.info(f"Reading {input_yaml}")
             vasp_params = yaml.safe_load(f)
-            dfttype = vasp_params["dfttype"]
+            # Set dfttype to None if it's not found in the YAML file
+            dfttype = vasp_params.get("dfttype", None)
 
         calc_mol = set_vasp_calculator(atom_type="molecule", input_yaml=input_yaml, do_optimization=True,
                                        dfttype=dfttype)
