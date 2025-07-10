@@ -1,5 +1,5 @@
 import numpy as np
-from kinetics.microkinetics.utils import get_number_of_reaction
+from kinetics.utils import get_number_of_reaction
 
 
 def get_nh3_formation_rate(deltaEs=None, reaction_file=None, rds=0):
