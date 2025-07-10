@@ -140,7 +140,8 @@ def get_overpotential_for_atoms(
         surface: Atoms=None,
         reaction_file=None,
         energy_shift=None,
-        calculator="m3gnet",
+        calculator="mace",
+        input_yaml="vasp_default.yaml",
         reaction_type="orr") -> float:
 
     surface, count = sort_atoms_by_z(surface)
@@ -149,7 +150,7 @@ def get_overpotential_for_atoms(
 
     surface = fix_lower_surface(surface)
     deltaEs = get_reaction_energy(reaction_file=reaction_file, surface=surface, calculator=calculator,
-                                  input_yaml="tmp.yaml")
+                                  input_yaml=input_yaml)
     eta = get_overpotential_oer_orr(reaction_file=reaction_file, deltaEs=deltaEs,
                                     reaction_type=reaction_type, energy_shift=energy_shift)
     return eta

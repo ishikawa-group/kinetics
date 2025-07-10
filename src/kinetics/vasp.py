@@ -1,4 +1,5 @@
-def set_vasp_calculator(atom_type="molecule", input_yaml="vaspinput_template.yaml", do_optimization=False, dfttype=None):
+def set_vasp_calculator(atom_type="molecule", input_yaml="vaspinput_template.yaml",
+                        do_optimization=False, dfttype=None):
     """
     Set up a calculator using VASP.
 
