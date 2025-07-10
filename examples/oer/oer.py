@@ -66,6 +66,15 @@ def get_spdf_electrons(surface: Atoms) -> tuple[int]:
 
     return s_electrons, p_electrons, d_electrons, f_electrons
 
+def clean():
+    # cleanup past calculation
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    clean_script = os.path.join(script_dir, "clean.sh")
+    try:
+        subprocess.run(["bash", clean_script])
+    except Exception as e:
+        logger.error(f"Failed to executre {clean_script}")
+
 
 if __name__ == "__main__":
     logging.basicConfig(
@@ -76,6 +85,7 @@ if __name__ == "__main__":
     )
     logger = logging.getLogger(__name__)
     logger.info("Start calculation")
+
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--max_sample", default=10, help="number of samples")
@@ -113,7 +123,7 @@ if __name__ == "__main__":
     reaction_file = "oer.txt"
     # reaction_file = "oer2.txt"
     # energy_shift = [-0.32, -0.54, -0.47, -0.75]
-    # energy_shift = [0, 0, 0, -4.92]
+    energy_shift = [0, 0, 0, -4.92]
 
     directory = "/ABO3_single/"
     # directory = "/ABO3_cif_large/"
@@ -122,35 +132,40 @@ if __name__ == "__main__":
 
     cif_files = sorted(glob.glob(os.getcwd() + directory + "*.cif"))
     cif_files = random.sample(cif_files, min(len(cif_files), max_sample))
+    possible_indices = [[0, 0, 1]]
+    # possible_indices = [[0, 0, 1], [1, 1, 0], [1, 1, 1]]
 
     for cif_file in cif_files[:max_sample]:
-        if not os.path.isfile(cif_file):
-            logger.info(f"Could not found file: {cif_file}")
-            raise ValueError
+        for miller_indices in possible_indices:
+            clean()
 
-        bulk = read(cif_file)
-        material = os.path.basename(cif_file).split("_")[1].split(".")[0]
-        surface = make_surface_from_cif(cif_file, indices=[0, 0, 1], repeat=repeat, vacuum=vacuum)
+            if not os.path.isfile(cif_file):
+                msg = f"Could not find file {cif_file}"
+                logger.error(msg)
+                raise ValueError(msg)
 
-        eta = get_overpotential_for_atoms(surface=surface, calculator=calculator,
-                                          input_yaml="vasp.yaml",
-                                          reaction_type="oer", reaction_file=reaction_file)
+            bulk = read(cif_file)
+            material = os.path.basename(cif_file).split("_")[1].split(".")[0]
+            surface = make_surface_from_cif(cif_file, indices=[0, 0, 1], repeat=repeat, vacuum=vacuum)
+            eta = get_overpotential_for_atoms(surface=surface, calculator=calculator,
+                                              input_yaml="vasp.yaml",
+                                              reaction_type="oer", reaction_file=reaction_file)
 
-        # getting descriptors
-        formula = surface.get_chemical_formula()
-        cell_volume = bulk.get_volume()  # volume of the bulk unit cell
-        s_electrons, p_electrons, d_electrons, f_electrons = get_spdf_electrons(surface)
-        min_M_O_distance = get_min_metal_oxygen_distance(surface)
+            # getting descriptors
+            formula = surface.get_chemical_formula()
+            cell_volume = bulk.get_volume()  # volume of the bulk unit cell
+            s_electrons, p_electrons, d_electrons, f_electrons = get_spdf_electrons(surface)
+            min_M_O_distance = get_min_metal_oxygen_distance(surface)
 
-        if eta is not None:
-            logger.info(f"material: {material:12.10s} eta: {eta:5.3f} eV")
-            materials.append(material)
-            etas.append(eta)
-            write_to_csv(csv_file, [formula, cell_volume, s_electrons, p_electrons,
-                                    d_electrons, f_electrons, min_M_O_distance, eta])
-        else:
-            logger.info(f"failed for {material}")
+            if eta is not None:
+                logger.info(f"material: {material:12.10s} eta: {eta:5.3f} eV")
+                materials.append(material)
+                etas.append(eta)
+                write_to_csv(csv_file, [formula, cell_volume, s_electrons, p_electrons,
+                                        d_electrons, f_electrons, min_M_O_distance, eta])
+            else:
+                logger.error(f"failed for {material}")
 
-    make_barplot(labels=materials, values=etas, threshold=1000)
+        # make_barplot(labels=materials, values=etas, threshold=1000)
 
     logger.info("All done")

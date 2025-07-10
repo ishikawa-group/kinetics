@@ -111,4 +111,3 @@ if __name__ == "__main__":
 
     # Save and print results
     save_results(out_json, results)
-    print(f"rate: {rate}")
