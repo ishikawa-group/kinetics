@@ -11,7 +11,7 @@ import subprocess
 from ase import Atoms
 from ase.io import read
 from kinetics.microkinetics.orr_and_oer import get_overpotential_for_atoms
-from kinetics.utils import make_surface_from_cif, make_barplot
+from kinetics.utils import make_surface_from_cif, make_barplot, remove_layers
 from ase.visualize import view
 
 # Load electron configuration data from YAML file
@@ -80,9 +80,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--max_sample", default=10, help="number of samples")
     parser.add_argument("--calculator", default="mace", help="energy calculator")
+    parser.add_argument("--repeat", default="222", help="repeat unit cell in xyz")
+    parser.add_argument("--vacuum", default=7.0, help="vacuum layer in Angstrom")
     args = parser.parse_args()
     max_sample = int(args.max_sample)
     calculator = args.calculator
+    repeat = [int(char) for char in args.repeat]
+    vacuum = float(args.vacuum)
 
     # cleanup past calculation
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -100,10 +104,6 @@ if __name__ == "__main__":
                          "s_electrons", "p_electrons", "d_electrons", "f_electrons",
                          "min_M_O_distance", "overpotential_in_eV"])
 
-    # surface model parameters
-    repeat = [2, 2, 2]
-    vacuum = 7.0
-
     # set random seed for reproducibility
     random.seed(0)
 
@@ -111,10 +111,12 @@ if __name__ == "__main__":
     etas = []
 
     reaction_file = "oer.txt"
+    # reaction_file = "oer2.txt"
     # energy_shift = [-0.32, -0.54, -0.47, -0.75]
-    energy_shift = [0, 0, 0, -4.92]
+    # energy_shift = [0, 0, 0, -4.92]
 
-    directory = "/ABO3_cif_large/"
+    directory = "/ABO3_single/"
+    # directory = "/ABO3_cif_large/"
     # directory = "/ABO3_cif/"
     # directory = "/ABO3_Mn_cif/"
 
@@ -129,6 +131,7 @@ if __name__ == "__main__":
         bulk = read(cif_file)
         material = os.path.basename(cif_file).split("_")[1].split(".")[0]
         surface = make_surface_from_cif(cif_file, indices=[0, 0, 1], repeat=repeat, vacuum=vacuum)
+
         eta = get_overpotential_for_atoms(surface=surface, calculator=calculator,
                                           input_yaml="vasp.yaml",
                                           reaction_type="oer", reaction_file=reaction_file)

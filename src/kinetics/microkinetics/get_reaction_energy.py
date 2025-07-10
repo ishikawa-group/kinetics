@@ -185,14 +185,7 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
                 }
 
     # spin-polarized or not for adsorbed molecules
-    closed_shell_molecules = ["H2",
-                              "HO", "OH",
-                              "H2O",
-                              "N2",
-                              "NH", "HN",
-                              "NH2", "H2N",
-                              "NH3", "H3N",
-                              ]
+    open_shell_molecules = ["O2"]
 
     # magnetic elements -- magmom up for these elements
     magnetic_elements = ["Cr", "Mn", "Fe", "Co", "Ni"]
@@ -258,7 +251,10 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
                         atoms.cell = [20, 20, 20]
                         atoms.pbc = True
                         atoms.center()
-                        if mol[0] in closed_shell_molecules:
+
+                        if mol[0] in open_shell_molecules:
+                            atoms.calc.set(ispin=2)
+                        else:
                             atoms.calc.set(ispin=1)
 
                 elif ads_type == "surface":

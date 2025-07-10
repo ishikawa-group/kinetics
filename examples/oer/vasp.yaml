@@ -10,7 +10,7 @@ molecule:
   idipol: null
 
 surface:
-  kpts: [1, 1, 1]  # now using kspacing
+  kpts: [1, 1, 1]  # now using kspacing so this is ignored
   ismear: 1
   sigma: 0.1
   lreal: true
@@ -28,22 +28,23 @@ solid:
 # Common settings
 common:
   xc: "pbe"
-  encut: 450.0
+  encut: 400.0
   ediff: 1.0e-4
-  ediffg: -40.0e-2
+  ediffg: -50.0e-2
   lorbit: 10
   algo: "Normal"
   nelm: 30
   nelmin: 3
-  npar: 2
-  nsim: 2
+  npar: 8
+  nsim: 8
   ispin: 2
   isym: 0
   kgamma: true
   lasph: false
   lwave: false
   lcharg: false
-  kspacing: 0.7
+  # kspacing: 0.7  # 221
+  kspacing: 1.0  # 111
 
 # Mixing parameters
 mixing:
@@ -64,7 +65,7 @@ optimization:
   enabled:
     ibrion: 2
     potim: 0.1
-    nsw: 2
+    nsw: 10
   disabled:
     ibrion: 0
     potim: 0.0
