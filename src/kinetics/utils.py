@@ -2,6 +2,7 @@ import os
 import argparse
 import uuid
 import logging
+import json
 from ase import Atom, Atoms
 from ase.build import fcc111
 from ase.calculators.emt import EMT
@@ -9,6 +10,7 @@ from ase.db import connect
 from ase.data import atomic_numbers
 import numpy as np
 from typing import Dict, List, Tuple, Optional, Any
+from pathlib import Path
 
 
 def vegard_lattice_constant(elements, fractions=None):
