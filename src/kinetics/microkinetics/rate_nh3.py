@@ -2,7 +2,7 @@ import numpy as np
 from kinetics.utils import get_number_of_reaction
 
 
-def get_nh3_formation_rate(deltaEs=None, reaction_file=None, rds=0):
+def get_nh3_formation_rate(deltaEs=None, reaction_file=None, rds=0, debug=False):
     """
     Calculate the NH3 formation rate from reaction energies (deltaEs).
 
@@ -10,13 +10,12 @@ def get_nh3_formation_rate(deltaEs=None, reaction_file=None, rds=0):
         deltaEs:
         reaction_file:
         rds:
+        debug:
 
     Returns:
         rate:
 
     """
-    debug = True
-
     T = 600  # K
     p_tot = 1.0e5   # pressure [Pa]
     p_ref = 1.0e5   # pressure of standard state [Pa]

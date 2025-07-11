@@ -66,6 +66,7 @@ def get_spdf_electrons(surface: Atoms) -> tuple[int]:
 
     return s_electrons, p_electrons, d_electrons, f_electrons
 
+
 def clean():
     # cleanup past calculation
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -85,7 +86,6 @@ if __name__ == "__main__":
     )
     logger = logging.getLogger(__name__)
     logger.info("Start calculation")
-
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--max_sample", default=10, help="number of samples")

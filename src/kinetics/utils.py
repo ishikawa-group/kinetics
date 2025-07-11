@@ -1,11 +1,14 @@
 import os
 import argparse
 import uuid
+import logging
+from ase import Atom, Atoms
 from ase.build import fcc111
 from ase.calculators.emt import EMT
 from ase.db import connect
 from ase.data import atomic_numbers
 import numpy as np
+from typing import Dict, List, Tuple, Optional, Any
 
 
 def vegard_lattice_constant(elements, fractions=None):
@@ -109,8 +112,6 @@ def make_bimetallic_alloys(
             print(f"Generated {i+1}/{num_samples} structures")
 
     print(f"Structures saved to {db_path}")
-import numpy as np
-from ase import Atom, Atoms
 
 
 def read_reactionfile(file):
@@ -989,7 +990,7 @@ def fix_lower_surface(atoms, adjust_layer=None):
 
     Args:
         atoms (Atoms): Atoms object
-        adjust_layer (list): List of element-wise layers to adjust fixing. Positive means more layers are fixed.
+        adjust_layer (list): List of element-wise layers to adjust fixing. Positive -> more layers are fixed.
     """
     from ase.constraints import FixAtoms
 
@@ -1149,7 +1150,8 @@ def make_barplot(labels=None, values=None, threshold=100, ylabel="y-value",
     plt.savefig(filename, dpi=300, bbox_inches="tight")
 
 
-def make_energy_diagram(deltaEs=None, has_barrier=False, rds=1, savefig=True, figname="ped.png", xticklabels=None):
+def make_energy_diagram(deltaEs=None, has_barrier=False, rds=1, savefig=True,
+                        figname="ped.png", xticklabels=None):
     """Generate potential energy diagram for reaction steps.
 
     Args:
@@ -1267,3 +1269,83 @@ def add_data_to_jsonfile(jsonfile, data):
 
     with open(jsonfile, "w") as f:
         json.dump(datum, f, indent=4)
+
+
+def get_row_by_unique_id(db, unique_id: str) -> Any:
+    """Find row by unique_id using multiple search methods.
+
+    Args:
+        db: ASE database connection
+        unique_id: Unique identifier for the structure
+
+    Returns:
+        Database row matching the unique_id
+    """
+    logger = logging.getLogger(__name__)
+
+    search_methods = [
+        (lambda: list(db.select(f'unique_id="{unique_id}"')), "string"),
+        (lambda: list(db.select(unique_id=unique_id)), "unique_id"),
+        (lambda: [r for r in db.select() if r.key_value_pairs.get('unique_id') == unique_id], "key-value"),
+        (lambda: [db.get(int(unique_id))], "integer ID")
+    ]
+
+    for method, method_name in search_methods:
+        try:
+            rows = method()
+            if rows:
+                logger.info(f"Found unique_id '{unique_id}' using {method_name}")
+                return rows[0]
+        except (ValueError, KeyError, TypeError) as e:
+            logger.error(f"Search method '{method_name}' failed: {e}")
+            continue
+
+    return None
+
+
+def load_results_from_json(out_json: str) -> Tuple[List[Dict], List[str]]:
+    """Load existing results from JSON file.
+
+    Args:
+        out_json: Path to JSON output file
+
+    Returns:
+        Tuple of (results list, unique_ids list)
+    """
+    logger = logging.getLogger(__name__)
+
+    json_path = Path(out_json)
+    if not json_path.exists() or json_path.stat().st_size == 0:
+        logger.info(f"No existing results file found at {out_json}")
+        return [], []
+
+    try:
+        with open(out_json) as f:
+            existing = json.load(f)
+        results = existing if isinstance(existing, list) else [existing]
+        ids = [entry.get('unique_id') for entry in results]
+        logger.info(f"Loaded {len(results)} existing results from {out_json}")
+        return results, ids
+    except (json.JSONDecodeError, IOError) as e:
+        logger.error(f"Error loading results from {out_json}: {e}")
+        return [], []
+
+
+def save_results_to_json(out_json: str, results: List[Dict]) -> None:
+    """Save results to JSON file.
+
+    Args:
+        out_json: Path to JSON output file
+        results: List of result dictionaries to save
+    """
+    logger = logging.getLogger(__name__)
+
+    try:
+        with open(out_json, 'w') as f:
+            json.dump(results, f, indent=2)
+        logger.info(f"Saved {len(results)} results to {out_json}")
+    except IOError as e:
+        logger.error(f"Error saving results to {out_json}: {e}")
+        raise
+
+    return None
