@@ -1,14 +1,7 @@
-*.egg-info
-*__pycache__*
 work*
 tmp*
 build
-.envrc
-.venv
-.claude
 
 *.traj
 *.png
-*.e[0-9]*
-*.o[0-9]*
 

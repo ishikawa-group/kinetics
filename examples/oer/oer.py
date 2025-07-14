@@ -88,15 +88,19 @@ if __name__ == "__main__":
     logger.info("Start calculation")
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--max_sample", default=10, help="number of samples")
+
+    parser.add_argument("--max_samples", default=60, help="number of samples")
     parser.add_argument("--calculator", default="mace", help="energy calculator")
     parser.add_argument("--repeat", default="222", help="repeat unit cell in xyz")
     parser.add_argument("--vacuum", default=7.0, help="vacuum layer in Angstrom")
+    parser.add_argument("--directory", default="ABO3_cif_large", help="directory with cif files")
+
     args = parser.parse_args()
-    max_sample = int(args.max_sample)
+    max_samples = int(args.max_samples)
     calculator = args.calculator
     repeat = [int(char) for char in args.repeat]
     vacuum = float(args.vacuum)
+    directory = args.directory
 
     # cleanup past calculation
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -125,17 +129,12 @@ if __name__ == "__main__":
     # energy_shift = [-0.32, -0.54, -0.47, -0.75]
     energy_shift = [0, 0, 0, -4.92]
 
-    directory = "/ABO3_single/"
-    # directory = "/ABO3_cif_large/"
-    # directory = "/ABO3_cif/"
-    # directory = "/ABO3_Mn_cif/"
-
-    cif_files = sorted(glob.glob(os.getcwd() + directory + "*.cif"))
-    cif_files = random.sample(cif_files, min(len(cif_files), max_sample))
+    cif_files = sorted(glob.glob(os.getcwd() + "/" + directory + "/" + "*.cif"))
+    cif_files = random.sample(cif_files, min(len(cif_files), max_samples))
     possible_indices = [[0, 0, 1]]
     # possible_indices = [[0, 0, 1], [1, 1, 0], [1, 1, 1]]
 
-    for cif_file in cif_files[:max_sample]:
+    for cif_file in cif_files[:max_samples]:
         for miller_indices in possible_indices:
             clean()
 

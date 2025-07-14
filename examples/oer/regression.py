@@ -7,7 +7,6 @@ import seaborn
 import argparse
 
 matplotlib.rcParams['backend'] = 'TkAgg'
-
 np.random.seed(10)
 
 
@@ -36,7 +35,7 @@ def regression(df, index_key=None, target_col="ads_energy", do_plot=True, method
         drop_cols.append(index_key)
 
     x = df.drop(drop_cols, axis=1)
-    y = -df[target_col]  # more positive = stronger adsorption
+    y = df[target_col]
 
     cv = 10
     test_size = 1.0 / cv
@@ -67,9 +66,11 @@ def regression(df, index_key=None, target_col="ads_energy", do_plot=True, method
 
     # Print feature importance or coefficients based on method
     if method == "random_forest":
-        print(pd.DataFrame({"name": x.columns, "Importance": grid.best_estimator_.named_steps["reg"].feature_importances_}))
+        print(pd.DataFrame({"name": x.columns,
+                            "Importance": grid.best_estimator_.named_steps["reg"].feature_importances_}))
     else:
-        print(pd.DataFrame({"name": x.columns, "Coef": grid.best_estimator_.named_steps["reg"].coef_}))
+        print(pd.DataFrame({"name": x.columns,
+                            "Coef": grid.best_estimator_.named_steps["reg"].coef_}))
     
     print("Training set score: {:.3f}".format(grid.score(x_train, y_train)))
     print("Test set score: {:.3f}".format(grid.score(x_test, y_test)))
@@ -81,7 +82,7 @@ def regression(df, index_key=None, target_col="ads_energy", do_plot=True, method
                         scatter_kws={"color": "navy", 'alpha': 0.3}, line_kws={"color": "navy"})
         ax.set_xlabel("Predicted value")
         ax.set_ylabel("True value")
-        ax.set_title(f"Regression for {target_col}")
+        ax.set_title(f"Regression for {target_col} with {method}")
         fig.tight_layout()
         plt.show()
         # fig.savefig("plot.png")
@@ -90,10 +91,14 @@ def regression(df, index_key=None, target_col="ads_energy", do_plot=True, method
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--filename", required=True, help="filename containing data (json or csv)")
-    parser.add_argument("--index-key", default=None, help="column name to use as index key for removing duplicates (default: first column)")
-    parser.add_argument("--target-col", default=None, help="column name to use as target variable (default: last column)")
-    parser.add_argument("--method", default="lasso", choices=["lasso", "linear", "random_forest"], help="regression method to use (default: lasso)")
+    parser.add_argument("--filename", default="output.csv",
+                        help="filename containing data (json or csv)")
+    parser.add_argument("--index_key", default=None,
+                        help="column name to use as index key (default: 1st column)")
+    parser.add_argument("--target_col", default=None,
+                        help="column name to use as target variable (default: last column)")
+    parser.add_argument("--method", default="lasso", choices=["lasso", "linear", "random_forest"],
+                        help="regression method to use (default: lasso)")
     args = parser.parse_args()
     filename = args.filename
 
