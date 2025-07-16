@@ -1,3 +1,4 @@
+import sys
 import os
 import argparse
 import uuid
@@ -944,7 +945,7 @@ def remove_layers(atoms=None, element=None, layers_to_remove=1):
     Args:
         atoms (Atoms): Atoms object
         element (str): Element symbol. If None, any atom can be deleted.
-        layers_to_remove(int): Number of layers (of specified element) to remove, from top of the surface.
+        layers_to_remove(int): Number of layers to remove, from top of the surface.
     """
     pbc  = atoms.get_pbc()
     cell = atoms.get_cell()
@@ -992,7 +993,7 @@ def fix_lower_surface(atoms, adjust_layer=None):
 
     Args:
         atoms (Atoms): Atoms object
-        adjust_layer (list): List of element-wise layers to adjust fixing. Positive -> more layers are fixed.
+        adjust_layer (list): List of element-wise layers to fix. Positive means more layers are fixed.
     """
     from ase.constraints import FixAtoms
 
@@ -1351,3 +1352,280 @@ def save_results_to_json(out_json: str, results: List[Dict]) -> None:
         raise
 
     return None
+
+
+def setup_logging(log_level: str = "INFO") -> logging.Logger:
+    """Setup logging configuration."""
+    logger = logging.getLogger(__name__)
+    logger.setLevel(getattr(logging, log_level.upper()))
+
+    if not logger.handlers:
+        handler = logging.StreamHandler(sys.stdout)
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+
+    return logger
+
+
+def set_initial_magmoms(atoms: Atoms):
+    """Set initial magnetic moments based on element type."""
+    magmom_dict = {
+        "Fe": 5.0, "Co": 3.0, "Ni": 2.0, "Mn": 5.0, "Cr": 4.0,
+        "O": 0.0, "H": 0.0, "C": 0.0, "N": 0.0, "S": 0.0
+    }
+    magmoms = []
+    for symbol in atoms.get_chemical_symbols():
+        magmoms.append(magmom_dict.get(symbol, 0.0))
+
+    atoms.set_initial_magnetic_moments(magmoms)
+    return None
+
+
+def my_calculator(
+        atoms,
+        kind: str,
+        calculator: str = "mace",
+        yaml_path: str = "data/vasp.yaml",
+        calc_directory: str = "calc"
+):
+    """
+    Create calculator instance based on parameters from YAML file and attach to atoms.
+
+    Args:
+        atoms: ASE atoms object
+        kind: "gas" / "slab" / "bulk"
+        calculator: "vasp" / "mattersim" / "mace"- calculator type
+        yaml_path: Path to YAML configuration file
+        calc_directory: Calculation directory for VASP
+
+    Returns:
+        atoms: Atoms object with calculator set (ExpCellFilter for bulk calculations)
+    """
+    import yaml
+    import sys
+    import torch
+
+    calculator = calculator.lower()
+
+    # optimizer options
+    fmax = 0.10
+    steps = 100
+
+    if calculator == "vasp":
+        from ase.calculators.vasp import Vasp
+
+        # Load YAML file directly
+        try:
+            with open(yaml_path, 'r') as f:
+                vasp_params = yaml.safe_load(f)
+        except FileNotFoundError:
+            print(f"Error: VASP parameter file not found at {yaml_path}")
+            sys.exit(1)
+        except yaml.YAMLError as e:
+            print(f"Error parsing YAML file {yaml_path}: {e}")
+            sys.exit(1)
+
+        if kind not in vasp_params['kinds']:
+            raise ValueError(f"Invalid kind '{kind}'. Must be one of {list(vasp_params['kinds'].keys())}")
+
+        # Copy common parameters
+        params = vasp_params['common'].copy()
+        # Update with kind-specific parameters
+        params.update(vasp_params['kinds'][kind])
+        # Set function argument parameters
+        params['directory'] = calc_directory
+
+        # Convert kpts to tuple (ASE expects tuple)
+        if 'kpts' in params and isinstance(params['kpts'], list):
+            params['kpts'] = tuple(params['kpts'])
+
+        # Set calculator to atoms object and return
+        atoms.calc = Vasp(**params)
+        # Automatically set lmaxmix
+        atoms = auto_lmaxmix(atoms)
+
+    elif calculator == "mattersim":
+        from mattersim.forcefield.potential import MatterSimCalculator
+        from ase.filters import ExpCellFilter
+        from ase.optimize import FIRE
+
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        atoms.calc = MatterSimCalculator(load_path="MatterSim-v1.0.0-5M.pth", device=device)
+
+        # Apply CellFilter for bulk calculations
+        if kind == "bulk":
+            atoms = ExpCellFilter(atoms)
+
+        # Perform structure optimization
+        optimizer = FIRE(atoms)
+        optimizer.run(fmax=fmax, steps=steps)
+
+        if isinstance(atoms, ExpCellFilter):
+            atoms = atoms.atoms
+        else:
+            atoms = atoms
+
+    elif calculator == "mattersim-matpes-pbe-d3":
+        # Import the custom function
+        from mattersim_matpes import mattersim_matpes_d3_calculator
+        from ase.filters import ExpCellFilter
+        from ase.optimize import FIRE
+
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+
+        # Use custom calculator with D3 dispersion corrections
+        calculator = mattersim_matpes_d3_calculator(
+            device=device,
+            dispersion=True,  # Enable D3 dispersion corrections
+            damping="bj",
+            dispersion_xc="pbe"
+        )
+
+        # 設定変更を防ぐプロキシクラスを実装
+        class ProtectedCalculator:
+            def __init__(self, calculator):
+                self._calculator = calculator
+
+            def __getattr__(self, name):
+                if name == 'set':
+                    def protected_set(*args, **kwargs):
+                        print("Warning: Calculator settings are protected and cannot be modified")
+                        return self  # 何も変更せずに自身を返す
+
+                    return protected_set
+                return getattr(self._calculator, name)
+
+        # 保護されたカリキュレータをセット
+        atoms.calc = ProtectedCalculator(calculator)
+
+        # Apply CellFilter for bulk calculations
+        if kind == "bulk":
+            atoms = ExpCellFilter(atoms)
+
+        # Perform structure optimization
+        optimizer = FIRE(atoms)
+        optimizer.run(fmax=fmax, steps=steps)
+
+        if isinstance(atoms, ExpCellFilter):
+            atoms = atoms.atoms
+        else:
+            atoms = atoms
+
+    elif calculator == "mattersim-matpes-pbe":
+        # Import the custom function
+        from mattersim_matpes import mattersim_matpes_d3_calculator
+        from ase.filters import ExpCellFilter
+        from ase.optimize import FIRE
+
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+
+        # Use custom calculator with D3 dispersion corrections
+        calculator = mattersim_matpes_d3_calculator(
+            device=device,
+            dispersion=False,  # Enable D3 dispersion corrections
+        )
+
+        # 設定変更を防ぐプロキシクラスを実装
+        class ProtectedCalculator:
+            def __init__(self, calculator):
+                self._calculator = calculator
+
+            def __getattr__(self, name):
+                if name == 'set':
+                    def protected_set(*args, **kwargs):
+                        print("Warning: Calculator settings are protected and cannot be modified")
+                        return self  # 何も変更せずに自身を返す
+
+                    return protected_set
+                return getattr(self._calculator, name)
+
+        # 保護されたカリキュレータをセット
+        atoms.calc = ProtectedCalculator(calculator)
+
+        # Apply CellFilter for bulk calculations
+        if kind == "bulk":
+            atoms = ExpCellFilter(atoms)
+
+        # Perform structure optimization
+        optimizer = FIRE(atoms)
+        optimizer.run(fmax=fmax, steps=steps)
+
+        if isinstance(atoms, ExpCellFilter):
+            atoms = atoms.atoms
+        else:
+            atoms = atoms
+
+    elif calculator == "mace":
+        from mace.calculators import mace_mp
+        from ase.filters import ExpCellFilter
+        from ase.optimize import FIRE
+
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        url = "https://github.com/ACEsuit/mace-foundations/releases/download/mace_matpes_0/MACE-matpes-pbe-omat-ft.model"
+
+        mace_calculator = mace_mp(model=url,
+                                  dispersion=True,
+                                  dispersion_xc="pbe",
+                                  default_dtype="float64",
+                                  device=device)
+
+        # 設定変更を防ぐプロキシクラスを実装
+        class ProtectedMaceCalculator:
+            def __init__(self, calculator):
+                self._calculator = calculator
+
+            def __getattr__(self, name):
+                if name == 'set':
+                    def protected_set(*args, **kwargs):
+                        return self  # 何も変更せずに自身を返す
+
+                    return protected_set
+                return getattr(self._calculator, name)
+
+        # 保護されたカリキュレータをセット
+        atoms.calc = ProtectedMaceCalculator(mace_calculator)
+
+        # Apply CellFilter for bulk calculations
+        if kind == "bulk":
+            atoms = ExpCellFilter(atoms)
+
+        # Perform structure optimization
+        optimizer = FIRE(atoms)
+        optimizer.run(fmax=fmax, steps=steps)
+
+        if isinstance(atoms, ExpCellFilter):
+            atoms = atoms.atoms
+        else:
+            atoms = atoms
+
+    else:
+        raise ValueError("calculator must be 'vasp' or 'mace'")
+
+    return atoms
+
+
+def auto_lmaxmix(atoms):
+    """Automatically set lmaxmix when d/f elements are present"""
+    d_elements = {
+        "Sc", "Ti", "V", "Cr", "Mn", "Fe", "Co", "Ni", "Cu", "Zn",
+        "Y", "Zr", "Nb", "Mo", "Tc", "Ru", "Rh", "Pd", "Ag", "Cd",
+        "Hf", "Ta", "W", "Re", "Os", "Ir", "Pt", "Au", "Hg"
+    }
+    f_elements = {
+        "La", "Ce", "Pr", "Nd", "Pm", "Sm", "Eu", "Gd", "Tb", "Dy",
+        "Ho", "Er", "Tm", "Yb", "Lu", "Ac", "Th", "Pa", "U", "Np",
+        "Pu", "Am", "Cm", "Bk", "Cf", "Es", "Fm", "Md", "No", "Lr"
+    }
+
+    symbols = set(atoms.get_chemical_symbols())
+
+    if symbols & f_elements:
+        lmaxmix_value = 6
+    elif symbols & d_elements:
+        lmaxmix_value = 4
+    else:
+        lmaxmix_value = 2
+
+    atoms.calc.set(lmaxmix=lmaxmix_value)
+    return atoms
