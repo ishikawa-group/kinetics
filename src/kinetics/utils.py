@@ -1368,7 +1368,7 @@ def setup_logging(log_level: str = "INFO") -> logging.Logger:
     return logger
 
 
-def set_initial_magmoms(atoms: Atoms):
+def set_initial_magmoms(atoms: Atoms) -> Atoms:
     """Set initial magnetic moments based on element type."""
     magmom_dict = {
         "Fe": 5.0, "Co": 3.0, "Ni": 2.0, "Mn": 5.0, "Cr": 4.0,
@@ -1379,16 +1379,11 @@ def set_initial_magmoms(atoms: Atoms):
         magmoms.append(magmom_dict.get(symbol, 0.0))
 
     atoms.set_initial_magnetic_moments(magmoms)
-    return None
+    return atoms
 
 
-def my_calculator(
-        atoms,
-        kind: str,
-        calculator: str = "mace",
-        yaml_path: str = "data/vasp.yaml",
-        calc_directory: str = "calc"
-):
+def set_calculator(atoms: Atoms, kind: str, calculator: str = "mace",
+                   yaml_path: str = "data/vasp.yaml", calc_directory: str = "calc") -> Atoms:
     """
     Create calculator instance based on parameters from YAML file and attach to atoms.
 
@@ -1562,9 +1557,10 @@ def my_calculator(
         from ase.optimize import FIRE
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        url = "https://github.com/ACEsuit/mace-foundations/releases/download/mace_matpes_0/MACE-matpes-pbe-omat-ft.model"
+        base_url = "https://github.com/ACEsuit/mace-foundations/releases/download/mace_matpes_0/"
+        model_url = "MACE-matpes-pbe-omat-ft.model"
 
-        mace_calculator = mace_mp(model=url,
+        mace_calculator = mace_mp(model=base_url + model_url,
                                   dispersion=True,
                                   dispersion_xc="pbe",
                                   default_dtype="float64",
@@ -1629,3 +1625,188 @@ def auto_lmaxmix(atoms):
 
     atoms.calc.set(lmaxmix=lmaxmix_value)
     return atoms
+
+
+def plot_free_energy_diagram(deltaGs: List[float], steps: List[str], work_dir: Path):
+    """Plot free energy diagram."""
+    if steps is None:
+        raise ValueError("in plot_free_energy_diagram: steps are not given")
+
+    import matplotlib.pyplot as plt
+
+    cumulative_energies = [0] + np.cumsum(deltaGs).tolist()
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(range(len(steps)), cumulative_energies, 'o-', linewidth=2, markersize=8)
+    plt.xlabel("Reaction Step")
+    plt.ylabel("Free Energy (eV)")
+    plt.title("ORR Free Energy Diagram")
+    plt.xticks(range(len(steps)), steps, rotation=45, ha='right')
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(work_dir / "free_energy_diagram.png", dpi=300, bbox_inches='tight')
+    plt.close()
+
+
+def convert_numpy_types(obj):
+    """Convert NumPy types to standard Python types"""
+    import numpy as np
+
+    if isinstance(obj, np.number):
+        return obj.item()  # Convert NumPy numeric types to Python standard numeric types
+    elif isinstance(obj, dict):
+        return {key: convert_numpy_types(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_numpy_types(item) for item in obj]
+    elif isinstance(obj, tuple):
+        return tuple(convert_numpy_types(item) for item in obj)
+    return obj
+
+
+def parallel_displacement(atoms, vacuum=15.0):
+    """
+    Translate slab in z-direction so the lowest point becomes z=0,
+    and add specified vacuum layer (vacuum[Å]) to the top (positive z-direction).
+
+    Note:
+        - This function assumes that the slab's surface normal direction aligns with the z-axis.
+        - For oblique cells, perform rotation preprocessing beforehand.
+
+    Args:
+        atoms: ASE Atoms object (slab, preferably generated without vacuum option)
+        vacuum: Thickness of vacuum layer to add (Å). Default is 15.0 Å.
+
+    Returns:
+        New ASE Atoms object with atomic positions shifted to z=0 bottom alignment
+        and cell z-axis length set to (slab height + vacuum).
+    """
+    # Create copy to avoid modifying original object
+    slab = atoms.copy()
+
+    # Get current atomic positions and calculate minimum z value
+    positions = slab.get_positions()
+    z_min = positions[:, 2].min()
+
+    # Translate entire slab in z-direction so lowest point becomes z=0
+    slab.translate([0, 0, -z_min])
+
+    # Get maximum z coordinate after translation
+    z_max = slab.get_positions()[:, 2].max()
+    # Calculate new z-axis length (slab height + vacuum)
+    new_z_length = z_max + vacuum
+
+    # Get cell matrix and set z-direction size to new length
+    # Here we assume the cell's third vector aligns with z-direction
+    cell = slab.get_cell().copy()
+    # For safety, reset z-axis component to [0, 0, new_z_length]
+    cell[2] = [0.0, 0.0, new_z_length]
+    slab.set_cell(cell, scale_atoms=False)  # scale_atoms=False updates only cell, not atomic coordinates
+
+    return slab
+
+
+def make_plot():
+    """ some plot """
+    import matplotlib.pyplot as plt
+
+    # Reaction step labels
+    labels = [
+        "O$_2$ + 2H$_2$", "OOH* + 1.5H$_2$", "O* + H$_2$O + H$_2$",
+        "OH* + H$_2$O + 0.5H$_2$", "* + 2H$_2$O",
+    ]
+
+    # Steps and relative profiles
+    steps = np.arange(reaction_count + 1)
+    g0_shift = g_profile_u0 - g_profile_u0[-1]
+    geq_shift = g_profile_ueq - g_profile_ueq[-1]
+    gul_shift = g_profile_ul - g_profile_ul[-1]
+
+    # Colors for different potential profiles
+    u0_color = 'black'  # U=0V is black
+    ueq_color = 'green'  # U=1.23V is green
+    ul_color = 'blue'  # U=UL is blue
+
+    # Horizontal line width
+    line_width = 0.3
+
+    # Create figure
+    plt.figure(figsize=(8, 7))
+
+    # ------ U=0V profile ------
+    # First point with label
+    plt.hlines(g0_shift[0], steps[0] - line_width, steps[0] + line_width,
+               color=u0_color, alpha=0.6, linewidth=2.5, label="U = 0 V")
+
+    # Remaining points without label
+    for i in range(1, len(steps)):
+        plt.hlines(g0_shift[i], steps[i] - line_width, steps[i] + line_width,
+                   color=u0_color, alpha=0.6, linewidth=2.5)
+
+    # Connect points with dashed lines
+    for i in range(len(steps) - 1):
+        plt.plot([steps[i] + line_width, steps[i + 1] - line_width],
+                 [g0_shift[i], g0_shift[i + 1]],
+                 '--', color=u0_color, alpha=0.6, linewidth=1.0)
+
+    # Add markers
+    plt.plot(steps, g0_shift, 'o', color=u0_color, alpha=0.6,
+             markersize=4, linestyle='none')
+
+    # ------ U=UL (Limiting Potential) profile ------
+    # First point with label
+    plt.hlines(gul_shift[0], steps[0] - line_width, steps[0] + line_width,
+               color=ul_color, linewidth=2.5,
+               label=f"U$_{{L}}$ = {limiting_potential:.2f} V")
+
+    # Remaining points without label
+    for i in range(1, len(steps)):
+        plt.hlines(gul_shift[i], steps[i] - line_width, steps[i] + line_width,
+                   color=ul_color, linewidth=2.5)
+
+    # Connect points with dashed lines
+    for i in range(len(steps) - 1):
+        plt.plot([steps[i] + line_width, steps[i + 1] - line_width],
+                 [gul_shift[i], gul_shift[i + 1]],
+                 '--', color=ul_color, linewidth=1.0)
+
+    # Add markers
+    plt.plot(steps, gul_shift, 's', color=ul_color, markersize=5, linestyle='none')
+
+    # ------ U=Equilibrium (1.23V) profile ------
+    # First point with label
+    plt.hlines(geq_shift[0], steps[0] - line_width, steps[0] + line_width,
+               color=ueq_color, alpha=0.8, linewidth=2.5,
+               label=f"U = {equilibrium_potential} V")
+
+    # Remaining points without label
+    for i in range(1, len(steps)):
+        plt.hlines(geq_shift[i], steps[i] - line_width, steps[i] + line_width,
+                   color=ueq_color, alpha=0.8, linewidth=2.5)
+
+    # Connect points with dashed lines
+    for i in range(len(steps) - 1):
+        plt.plot([steps[i] + line_width, steps[i + 1] - line_width],
+                 [geq_shift[i], geq_shift[i + 1]],
+                 '--', color=ueq_color, alpha=0.8, linewidth=1.0)
+
+    # Add markers
+    plt.plot(steps, geq_shift, 'o', color=ueq_color, alpha=0.8,
+             markersize=6, linestyle='none')
+
+    # Formatting
+    plt.xticks(steps, labels, rotation=15, ha='right')
+    plt.ylabel("ΔG (eV)", fontsize=12, fontweight='bold')
+    plt.xlabel("Reaction Coordinate", fontsize=12, fontweight='bold')
+    plt.title("4e⁻ ORR Free-Energy Diagram", fontsize=14, fontweight='bold')
+    plt.grid(True, linestyle='--', alpha=0.3)
+
+    # Add legend and horizontal zero line
+    plt.legend(loc='upper right', fontsize=10)
+    plt.axhline(y=0, color='black', linestyle='-', alpha=0.5, linewidth=0.8)
+
+    plt.tight_layout()
+
+    # Save figure
+    figure_path = output_dir / "ORR_free_energy_diagram.png"
+    plt.savefig(figure_path, dpi=300, bbox_inches='tight')
+    plt.close()
