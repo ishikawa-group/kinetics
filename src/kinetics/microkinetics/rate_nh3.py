@@ -2,21 +2,8 @@ import numpy as np
 from kinetics.utils import get_number_of_reaction
 
 
-def get_nh3_formation_rate(deltaEs=None, reaction_file=None, rds=0, debug=False):
-    """
-    Calculate the NH3 formation rate from reaction energies (deltaEs).
-
-    Args:
-        deltaEs:
-        reaction_file:
-        rds:
-        debug:
-
-    Returns:
-        rate:
-
-    """
-    T = 600  # K
+def get_nh3_formation_rate(deltaEs=None, reaction_file=None, rds=0, T=300, debug=False):
+    """Calculate the NH3 formation rate from reaction energies (deltaEs)."""
     p_tot = 1.0e5   # pressure [Pa]
     p_ref = 1.0e5   # pressure of standard state [Pa]
     kJtoeV = 1/98.415
@@ -56,9 +43,9 @@ def get_nh3_formation_rate(deltaEs=None, reaction_file=None, rds=0, debug=False)
 
     # thermal correction (translation + rotation) in eV
     deltaTherms    = np.zeros(rxn_num)
-    deltaTherms[0] =  ((3/2)*RT + RT)  # NH3 adsorption
-    deltaTherms[1] = ((3/2)*RT - RT)   # H2 desorption
-    deltaTherms[5] = ((3/2)*RT - RT)   # N2 desorption
+    deltaTherms[0] = -((3/2)*RT + RT)  # NH3 adsorption
+    deltaTherms[1] =  ((3/2)*RT - RT)   # H2 desorption
+    deltaTherms[5] =  ((3/2)*RT - RT)   # N2 desorption
 
     # pressure correction i.e. deltaGs = deltaGs^0 + RT*ln(p/p0)
     RTlnP = np.zeros(rxn_num)
@@ -82,7 +69,7 @@ def get_nh3_formation_rate(deltaEs=None, reaction_file=None, rds=0, debug=False)
     Ea = alpha*deltaEs[rds] + beta
 
     # A = 1.2e6 / np.sqrt(T)  # Dahl J.Catal., converted from bar^-1 to Pa^-1
-    A = 0.241 # [s^-1] Logadottir, J.Catal 220 273 2003
+    A = 0.241  # [s^-1] Logadottir, J.Catal 220 273 2003
     k = A*np.exp(-Ea/RT)
 
     # coverage

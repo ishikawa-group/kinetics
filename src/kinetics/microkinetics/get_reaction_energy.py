@@ -1,3 +1,6 @@
+from ase import Atoms
+
+
 def register(db=None, atoms=None, data=None):
     formula = atoms.get_chemical_formula()
 
@@ -10,13 +13,12 @@ def get_past_atoms(db=None, atoms=None):
 
     try:
         id_ = db.get(name=formula).id
-        first = False
         atoms = db.get_atoms(id=id_).copy()
+        first = False
     except Exception as e:
         first = True
 
-    finally:
-        return atoms, first
+    return atoms, first
 
 
 def get_past_energy(db=None, atoms=None):
@@ -32,33 +34,42 @@ def get_past_energy(db=None, atoms=None):
         return energy, first
 
 
-def optimize_geometry(atoms=None, steps=100):
+def optimize_geometry(atoms=None, fmax=0.01, steps=100, work_dir=None) -> Atoms:
     import copy
     from ase.optimize import FIRE
     import logging
     import warnings
+    from pathlib import Path
     warnings.filterwarnings("ignore")
 
     logger = logging.getLogger(__name__)
 
     atoms_ = copy.deepcopy(atoms)
+    trajectory_file = None
+    log_file = None
 
     if "vasp" in atoms_.calc.name:
         try:
             atoms_.get_potential_energy()
         except Exception as e:
-            logger.info("Error at VASP 1")
+            logger.info("Error at VASP")
     else:
         name = atoms_.get_chemical_formula()
-        trajectory = name + ".traj"
-        opt = FIRE(atoms_, trajectory=trajectory, logfile="opt_log.txt")
-        opt.run(fmax=0.05, steps=steps)
+        if work_dir:
+            work_dir = Path(work_dir)
+            trajectory_file = str(work_dir / (name + ".traj"))
+            log_file = str(work_dir / "opt_log.txt")
+        else:
+            trajectory_file = name + ".traj"
+            log_file = "opt_log.txt"
+        opt = FIRE(atoms_, trajectory=trajectory_file, logfile=log_file)
+        opt.run(fmax=fmax, steps=steps)
 
     return atoms_
 
 
 def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt", input_yaml=None,
-                        verbose=False, dirname="work"):
+                        verbose=False, dirname="work", opt_steps=100):
     """
     Calculate reaction energy for each reaction.
     """
@@ -71,9 +82,8 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
     from ase.db import connect
     from ase.visualize import view
     from ase.io import write
-    from kinetics.utils import get_adsorbate_type, get_number_of_reaction, get_reac_and_prod
-    from kinetics.vasp import set_vasp_calculator
-    from kinetics.vasp import set_lmaxmix
+    from kinetics.utils import get_adsorbate_type, get_number_of_reaction, get_reac_and_prod, set_calculator
+    from kinetics.vasp import set_vasp_calculator, set_lmaxmix
     from ase.build import bulk
     import logging
 
@@ -101,72 +111,6 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
 
     # define calculator for molecules and surfaces separately
     calculator = calculator.lower()
-
-    if "emt" in calculator:
-        from ase.calculators.emt import EMT
-        logger.info("EMT calculator is used.")
-        calc_mol = EMT()
-        calc_surf = EMT()
-
-    elif "vasp" in calculator:
-        # Check if input_yaml is None
-        if input_yaml is None:
-            msg = "Input_yaml is needed for VASP calculator."
-            logger.error(msg)
-            raise ValueError(msg)
-
-        # Load dfttype parameter from YAML file
-        with open(input_yaml) as f:
-            logger.info(f"Reading {input_yaml}")
-            vasp_params = yaml.safe_load(f)
-            dfttype = vasp_params.get("dfttype", "gga")  # if dfttype not find in yaml, set gga.
-            logger.info(f"Using DFT type: {dfttype}")
-
-        calc_mol = set_vasp_calculator(atom_type="molecule", input_yaml=input_yaml, do_optimization=True,
-                                       dfttype=dfttype)
-        calc_surf = set_vasp_calculator(atom_type="surface", input_yaml=input_yaml, do_optimization=True,
-                                        dfttype=dfttype)
-
-    # elif "m3gnet" in calculator:
-    #    import matgl
-    #    from matgl.ext.ase import PESCalculator
-    #
-    #    potential = matgl.load_model("M3GNet-MP-2021.2.8-PES")
-    #    calc_mol = PESCalculator(potential=potential)
-    #    calc_surf = PESCalculator(potential=potential)
-    #
-    # elif "mattersim" in calculator:
-    #    from mattersim.forcefield.potential import MatterSimCalculator
-    #
-    #    device = "cuda" if torch.cuda.is_available() else "cpu"
-    #    calc_mol = MatterSimCalculator(load_path="MatterSim-v1.0.0-5M.pth", device=device)
-    #    calc_surf = MatterSimCalculator(load_path="MatterSim-v1.0.0-5M.pth", device=device)
-    #
-    # elif "chgnet" in calculator:
-    #   from chgnet.model.dynamics import CHGNetCalculator
-    #   from chgnet.model.model import CHGNet
-    #
-    #   chgnet = CHGNet.load()
-    #   calc_mol  = CHGNetCalculator(potential=chgnet, properties="energy")
-    #   calc_surf = CHGNetCalculator(potential=chgnet, properties="energy")
-    #
-    # elif "sevennet" in calculator:
-    #   from sevenn.calculator import SevenNetCalculator
-    #   calc_mol  = SevenNetCalculator(model='7net-0', modal='mpa')
-    #   calc_surf = SevenNetCalculator(model='7net-0', modal='mpa')
-
-    elif "mace" in calculator:
-        from mace.calculators import mace_mp
-
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        model = "https://github.com/ACEsuit/mace-foundations/releases/download/mace_matpes_0/MACE-matpes-r2scan-omat-ft.model"
-        mace_calculator = mace_mp(model=model, dispersion=False, default_dtype="float64", device=device)
-
-        calc_mol = mace_calculator
-        calc_surf = mace_calculator
-
-    else:
-        raise ValueError("Choose from emt, vasp, mace.")
 
     # load adsorbate position from "adsorbate.yaml"
     with open("adsorbate.yaml") as f:
@@ -223,8 +167,9 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
             elif side == "product":
                 mols, sites, coefs = p_ads[irxn], p_site[irxn], p_coef[irxn]
             else:
-                logger.info("some error")
-                quit()
+                msg = "some error"
+                logger.error(msg)
+                raise ValueError(msg)
 
             E = 0.0
 
@@ -234,20 +179,20 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
                 else:
                     try:
                         id_ = database.get(name=mol[0]).id
-                    except KeyError:
-                        logger.info(f"{mol[0]} not found in {database_file}")
-                        quit()
-                    else:
                         atoms = database.get_atoms(id=id_)
+                    except KeyError:
+                        msg = f"{mol[0]} not found in {database}"
+                        logger.error(msg)
+                        raise ValueError(msg)
 
                 site = sites[imol][0]
                 ads_type = get_adsorbate_type(atoms, site)
 
                 if ads_type == "gaseous":
                     if mol[0] == "surf":
-                        atoms.calc = calc_surf
+                        atoms = set_calculator(atoms=atoms, kind="surface", calculator=calculator)
                     else:
-                        atoms.calc = calc_mol
+                        atoms = set_calculator(atoms=atoms, kind="molecule", calculator=calculator)
                         atoms.cell = [20, 20, 20]
                         atoms.pbc = True
                         atoms.center()
@@ -283,7 +228,7 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
                         if "vasp" in calculator and "plus" in dfttype:
                             set_lmaxmix(atoms=surf_)
 
-                        surf_ = optimize_geometry(atoms=surf_)
+                        optimize_geometry(atoms=surf_, steps=opt_steps, work_dir=work_dir)
                         register(db=tmpdb, atoms=surf_, data={"energy": 0.0})
                     else:
                         # Not the first time for - use previous value
@@ -291,10 +236,11 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
 
                     atoms = copy.deepcopy(surf_)
                     add_adsorbate(atoms, adsorbate, offset=offset, position=position, height=height)
-                    atoms.calc = calc_surf
+                    atoms = set_calculator(atoms=atoms, kind="surf", calculator=calculator)
                 else:
-                    logger.info("some error")
-                    quit()
+                    msg = "Unknown adsorbate type"
+                    logger.error(msg)
+                    raise ValueError(msg)
 
                 # setting atoms done
                 energy, first = get_past_energy(db=tmpdb, atoms=atoms)
@@ -307,24 +253,23 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
 
                     work_dir = Path(dirname) / formula
                     work_dir.mkdir(parents=True, exist_ok=True)
-                    pngfile = work_dir / Path(atoms.get_chemical_formula() + ".png")
-                    write(pngfile, atoms)
 
                     atoms.calc.directory = str(work_dir)
 
                     if "vasp" in calculator and "plus" in dfttype:
                         set_lmaxmix(atoms=atoms)
 
-                    try:
-                        energy = atoms.get_potential_energy()
-                    except Exception:
-                        logger.info("Energy calculation error")
-                        raise ValueError
+                    # do calculation
+                    atoms = optimize_geometry(atoms=atoms, steps=opt_steps, work_dir=work_dir)
+                    energy = atoms.get_potential_energy()
+
+                    pngfile = work_dir / Path(atoms.get_chemical_formula() + ".png")
+                    write(pngfile, atoms)
 
                     try:
                         register(db=tmpdb, atoms=atoms, data={"energy": energy})
                     except Exception:
-                        logger.warning(f"Failed to write to {tmpdb}")
+                        logger.error(f"Failed to write to {tmpdb}")
 
                 # add zpe for gaseous molecule
                 if add_zpe_here:

@@ -1,3 +1,3 @@
-from kinetics.utils import make_bimetallic_alloys
+from kinetics.utils import make_metal_surface
 
-make_bimetallic_alloys(num_samples=1, output_dir="./", jsonfile="structures.json")
+make_metal_surface(size=[4, 4, 4], elements=["Ni"], jsonfile="structures.json")

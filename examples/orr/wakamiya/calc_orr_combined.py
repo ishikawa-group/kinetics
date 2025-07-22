@@ -316,20 +316,24 @@ def get_orr_overpotential(bulk: Atoms = None, deltaEs: List[float] = None, T: fl
     # Zero-point energy corrections (eV)-- Reference: https://doi.org/10.1021/ja405997s
     ZPE = {
         "H2": 0.35, "H2O": 0.57,
-        "OOH": 0.44,  "OH": 0.37,  # temporary value
+        "OOH": 0.10,  "OH": 0.10,  # temporary value
+        "O2": 0.10,  # from Calle-Vallejo, PCCP 2011 13 15639
         "Osurf": 0.06, "OHsurf": 0.37, "OOHsurf": 0.44,
     }
 
     # Entropy terms T*S (eV) -- Reference: https://doi.org/10.1021/ja405997s
     S = {
         "H2": 0.403 / T, "H2O": 0.67 / T,
-        "OOH": 0.20 / T, "OH": 0.20 / T,  # temporary value
+        "OOH": 0.10 / T, "OH": 0.10 / T,  # temporary value
+        "O2": 0.64 / T,  # from Calle-Vallejo, PCCP 2011 13 15639
         "Osurf": 0.0, "OHsurf": 0.0, "OOHsurf": 0.0,
     }
 
     # Calculate O2 corrections
-    ZPE["O2"] = 2 * (ZPE["H2O"] - ZPE["H2"])
-    S["O2"] = 2 * (S["H2O"] - S["H2"])
+    if "O2" not in ZPE:
+        ZPE["O2"] = 2 * (ZPE["H2O"] - ZPE["H2"])
+    if "O2" not in S:
+        S["O2"] = 2 * (S["H2O"] - S["H2"])
 
     # Calculate binding energies
     E_bind = {}

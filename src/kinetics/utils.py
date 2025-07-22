@@ -1,17 +1,43 @@
 import sys
 import os
-import argparse
-import uuid
-import logging
 import json
+import logging
+import uuid
+from collections import Counter
+from pathlib import Path
+from typing import Dict, List, Tuple, Optional, Any
+
+import numpy as np
+import pandas as pd
 from ase import Atom, Atoms
 from ase.build import fcc111
 from ase.calculators.emt import EMT
+from ase.data import atomic_numbers, reference_states
 from ase.db import connect
-from ase.data import atomic_numbers
-import numpy as np
-from typing import Dict, List, Tuple, Optional, Any
-from pathlib import Path
+
+# Constants
+DEFAULT_RANDOM_SEED = 42
+DEFAULT_VACUUM = 10.0
+DEFAULT_ADS_HEIGHT = 0.1
+BEP_ALPHA = 0.87  # Brønsted-Evans-Polanyi relationship
+BEP_BETA = 1.34
+Z_PRECISION = 1  # decimal places for z-coordinate rounding
+
+# Element sets for VASP LMAXMIX
+D_ELEMENTS = {
+    "Sc", "Ti", "V", "Cr", "Mn", "Fe", "Co", "Ni", "Cu", "Zn",
+    "Y", "Zr", "Nb", "Mo", "Tc", "Ru", "Rh", "Pd", "Ag", "Cd",
+    "Hf", "Ta", "W", "Re", "Os", "Ir", "Pt", "Au", "Hg"
+}
+F_ELEMENTS = {
+    "La", "Ce", "Pr", "Nd", "Pm", "Sm", "Eu", "Gd", "Tb", "Dy",
+    "Ho", "Er", "Tm", "Yb", "Lu", "Ac", "Th", "Pa", "U", "Np",
+    "Pu", "Am", "Cm", "Bk", "Cf", "Es", "Fm", "Md", "No", "Lr"
+}
+MAGMOM_DICT = {
+    "Fe": 5.0, "Co": 3.0, "Ni": 2.0, "Mn": 5.0, "Cr": 4.0,
+    "O": 0.0, "H": 0.0, "C": 0.0, "N": 0.0, "S": 0.0
+}
 
 
 def vegard_lattice_constant(elements, fractions=None):
@@ -19,13 +45,9 @@ def vegard_lattice_constant(elements, fractions=None):
     elements : ['Pt','Ni', ...]
     fractions: [0.5,0.5] など。None の場合は等分
     """
-    from ase.data import reference_states, atomic_numbers
-
     def _elemental_a(symbol: str) -> float:
         """ASE の reference_states から FCC 格子定数 (Å) を返す"""
-        from ase.data import reference_states, atomic_numbers
-        Z = atomic_numbers[symbol]
-        a = reference_states[Z].get('a')  # FCC は 'a' キーに格子定数
+        a = reference_states[atomic_numbers[symbol]].get('a')
         if a is None:
             raise ValueError(f"No reference lattice constant for {symbol}")
         return a
@@ -35,20 +57,50 @@ def vegard_lattice_constant(elements, fractions=None):
         fractions = [1.0 / n] * n
     if abs(sum(fractions) - 1) > 1e-6:
         raise ValueError("Fractions must sum to 1")
-    constants = [_elemental_a(el) for el in elements]
-    return sum(a * x for a, x in zip(constants, fractions))
+    
+    return sum(_elemental_a(el) * frac for el, frac in zip(elements, fractions))
 
 
-def make_bimetallic_alloys(
-        num_samples=10,
-        output_dir="./",
-        size=[4, 4, 4],
-        elements=["Pt", "Ni"],
-        jsonfile="structures.json"
-    ):
+def make_metal_surface(num_samples=1, output_dir="./", size=[3, 3, 3],
+                       elements=["Pt"], jsonfile="structures.json"):
 
+    if len(elements) == 1:
+        # --- パラメータ設定 ---
+        vacuum = DEFAULT_VACUUM
+        # --- 出力先ディレクトリの設定 ---
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+        # 出力ファイルのパス（jsonを指定されたフォルダ内に出力）
+        db_path = os.path.join(output_dir, jsonfile)
+        if os.path.exists(db_path):
+            os.remove(db_path)
+        db = connect(db_path)
+        # Vegard法で格子定数を計算
+        lattice_const = vegard_lattice_constant(elements)
+        # fcc111Bulkの作成（基本はmainの構造）
+        surf = fcc111(symbol=elements[0], size=size, a=lattice_const, vacuum=vacuum, periodic=True)
+        # --- EMT計算器の設定（FutureWarning解消のため calc 属性を直接代入） ---
+        surf.calc = EMT()
+        # --- 表面情報の取得 ---
+        ads_info = surf.info["adsorbate_info"]
+        # --- データベースへの書き込み ---
+        data = {
+            "chemical_formula": surf.get_chemical_formula(),
+            "lattice_constant": float(lattice_const),
+            "adsorbate_info": ads_info
+        }
+        db.write(surf, data=data)
+        print(f"Structures saved to {db_path}")
+
+    elif len(elements) == 2:
+        db_path = _make_bimetallic_alloys(num_samples=num_samples, output_dir=output_dir,
+                                          size=size, elements=elements, jsonfile=jsonfile)
+
+
+def _make_bimetallic_alloys(num_samples=10, output_dir="./", size=[3, 3, 3],
+                           elements=["Pt", "Ni"], jsonfile="structures.json"):
     # --- パラメータ設定 ---
-    vacuum = None
+    vacuum = DEFAULT_VACUUM
 
     # --- 出力先ディレクトリの設定 ---
     if not os.path.exists(output_dir):
@@ -62,9 +114,9 @@ def make_bimetallic_alloys(
     db = connect(db_path)
 
     # ランダムシード設定（再現性のため）
-    np.random.seed(42)
+    np.random.seed(DEFAULT_RANDOM_SEED)
 
-    # generation just to have the number of atoms in the slab
+    # generation just to have the number of atoms in the surf
     num_atoms = len(fcc111(symbol=elements[0], size=size, a=2.5, vacuum=vacuum, periodic=True))
 
     print(f"Generating {num_samples} random alloy structures...")
@@ -115,6 +167,7 @@ def make_bimetallic_alloys(
             print(f"Generated {i+1}/{num_samples} structures")
 
     print(f"Structures saved to {db_path}")
+    return db_path
 
 
 def read_reactionfile(file):
@@ -129,16 +182,13 @@ def read_reactionfile(file):
         prod (list): products
     """
     import re
-
-    f = open(file, "r")
-
-    # drop comment and branck lines
-    lines = f.readlines()
-    newlines = []
-    for line in lines:
-        if not (re.match(r"^#", line)) and not (re.match(r"^s*$", line)):
-            newlines.append(line)
-    lines = newlines
+    
+    def _filter_lines(filepath):
+        """Helper function to read file and filter out comments and blank lines."""
+        with open(filepath, "r") as f:
+            return [line for line in f if not re.match(r'^(#|\s*$)', line)]
+    
+    lines = _filter_lines(file)
     numlines = len(lines)
 
     reac = list(range(numlines))
@@ -147,166 +197,107 @@ def read_reactionfile(file):
 
     for i, line in enumerate(lines):
         text = line.replace("\n", "").replace(">", "").split("--")
-        reac_tmp = text[0]
-        rxn_tmp = text[1]
-        prod_tmp = text[2]
+        reac_tmp, rxn_tmp, prod_tmp = text[0], text[1], text[2]
 
-        reac[i] = re.split(" \+ ", reac_tmp)  # for cations
-        prod[i] = re.split(" \+ ", prod_tmp)  # for cations
-
-        reac[i] = remove_space(reac[i])
-        prod[i] = remove_space(prod[i])
-
+        reac[i] = remove_space(re.split(r" \+ ", reac_tmp))
+        prod[i] = remove_space(re.split(r" \+ ", prod_tmp))
         rxn[i] = reac[i][0] + "_" + rxn_tmp
 
     return reac, rxn, prod
 
 
 def return_lines_of_reactionfile(file):
-    """
-    Return lines of reaction file.
-    """
+    """Return lines of reaction file."""
     import re
-
-    # drop comment and branck lines
-    f = open(file, "r")
-    lines = f.readlines()
-    newlines = []
-    for line in lines:
-        if not (re.match(r"^#", line)) and not (re.match(r"^s*$", line)):
-            newlines.append(line)
-    lines = newlines
-    return lines
+    
+    def _filter_lines(filepath):
+        """Helper function to read file and filter out comments and blank lines."""
+        with open(filepath, "r") as f:
+            return [line for line in f if not re.match(r'^(#|\s*$)', line)]
+            
+    return _filter_lines(file)
 
 
 def remove_space(obj):
-    """
-    Remove space in the object.
-    """
-    newobj = [0] * len(obj)
+    """Remove space in the object."""
     if isinstance(obj, str):
-        #
-        # string
-        #
-        newobj = obj.replace(" ", "")
+        return obj.replace(" ", "")
     elif isinstance(obj, list):
-        #
-        # list
-        #
-        for i, obj2 in enumerate(obj):
-            if isinstance(obj2, list):
-                #
-                # nested list
-                #
-                for ii, jj in enumerate(obj2):
-                    jj = jj.strip()
-                newobj[i] = jj
-            elif isinstance(obj2, str):
-                #
-                # simple list
-                #
-                obj2 = obj2.replace(" ", "")
-                newobj[i] = obj2
-            elif isinstance(obj2, int):
-                #
-                # integer
-                #
-                newobj[i] = obj2
+        result = []
+        for item in obj:
+            if isinstance(item, list):
+                result.append(item[-1].strip() if item else "")
+            elif isinstance(item, str):
+                result.append(item.replace(" ", ""))
             else:
-                newobj[i] = obj2
-    else:  # error
+                result.append(item)
+        return result
+    else:
         print("remove_space: input str or list")
-
-    return newobj
+        return obj
 
 
 def get_reac_and_prod(reactionfile):
-    """
-    Form reactant and product information.
-    """
-    (reac, rxn, prod) = read_reactionfile(reactionfile)
+    """Form reactant and product information."""
+    
+    def _parse_molecule(mol):
+        """Parse molecule string to extract coefficient, adsorbate, and site info."""
+        # Extract coefficient
+        if "*" in mol:
+            coef = float(mol.split("*")[0])
+            rest = mol.split("*")[1]
+        else:
+            coef = 1
+            rest = mol
 
+        # Extract sites and adsorbates
+        ads_list, site_list = [], []
+        if ',' in rest:
+            sites = rest.split(',')
+            for site in sites:
+                parts = site.split('_')
+                ads_list.append(parts[0])
+                site_list.append(parts[1])
+        elif '_' in rest:
+            parts = rest.split('_')
+            ads_list.append(parts[0])
+            site_list.append(parts[1])
+        else:
+            ads_list.append(rest)
+            site_list.append("gas")
+        
+        return coef, ads_list, site_list
+    
+    (reac, rxn, prod) = read_reactionfile(reactionfile)
     rxn_num = len(rxn)
 
-    r_ads = list(range(rxn_num))
-    r_site = [[] for _ in range(rxn_num)]
-    r_coef = [[] for _ in range(rxn_num)]
+    r_ads, r_site, r_coef = [], [], []
+    p_ads, p_site, p_coef = [], [], []
 
-    p_ads = list(range(rxn_num))
-    p_site = list(range(rxn_num))
-    p_coef = list(range(rxn_num))
+    for irxn in range(rxn_num):
+        # Process reactants
+        r_mol_ads, r_mol_site, r_mol_coef = [], [], []
+        for mol in reac[irxn]:
+            coef, ads_list, site_list = _parse_molecule(mol)
+            r_mol_coef.append(coef)
+            r_mol_ads.append(ads_list)
+            r_mol_site.append(site_list)
+        
+        r_ads.append(r_mol_ads)
+        r_site.append(r_mol_site)
+        r_coef.append(r_mol_coef)
 
-    for irxn, jrnx in enumerate(rxn):
-        ireac = reac[irxn]
-        iprod = prod[irxn]
-        ireac_num = len(ireac)
-        iprod_num = len(iprod)
-        #
-        # reactant
-        #
-        r_ads[irxn] = list(range(ireac_num))
-        r_site[irxn] = list(range(ireac_num))
-        r_coef[irxn] = list(range(ireac_num))
-
-        for imol, mol in enumerate(ireac):
-            r_site[irxn][imol] = []
-            r_ads[irxn][imol] = []
-            #
-            # coefficient
-            #
-            if "*" in mol:
-                # r_coef[irxn][imol] = int(mol.split("*")[0])
-                r_coef[irxn][imol] = float(mol.split("*")[0])
-                rest = mol.split("*")[1]
-            else:
-                r_coef[irxn][imol] = 1
-                rest = mol
-
-            # site
-            if ',' in rest:
-                sites = rest.split(',')
-                for isite, site in enumerate(sites):
-                    r_site[irxn][imol].append(site.split('_')[1])
-                    r_ads[irxn][imol].append(site.split('_')[0])
-            elif '_' in rest:
-                r_site[irxn][imol].append(rest.split('_')[1])
-                r_ads[irxn][imol].append(rest.split('_')[0])
-            else:
-                r_site[irxn][imol].append('gas')
-                r_ads[irxn][imol].append(rest)
-        #
-        # product
-        #
-        p_ads[irxn] = list(range(iprod_num))
-        p_site[irxn] = list(range(iprod_num))
-        p_coef[irxn] = list(range(iprod_num))
-
-        for imol, mol in enumerate(iprod):
-            p_site[irxn][imol] = []
-            p_ads[irxn][imol] = []
-            #
-            # coefficient
-            #
-            if "*" in mol:
-                # p_coef[irxn][imol] = int(mol.split("*")[0])
-                p_coef[irxn][imol] = float(mol.split("*")[0])
-                rest = mol.split("*")[1]
-            else:
-                p_coef[irxn][imol] = 1
-                rest = mol
-
-            # site
-            if ',' in rest:
-                sites = rest.split(',')
-                for isite, site in enumerate(sites):
-                    p_site[irxn][imol].append(site.split('_')[1])
-                    p_ads[irxn][imol].append(site.split('_')[0])
-            elif '_' in rest:
-                p_site[irxn][imol].append(rest.split('_')[1])
-                p_ads[irxn][imol].append(rest.split('_')[0])
-            else:
-                p_site[irxn][imol].append('gas')
-                p_ads[irxn][imol].append(rest)
+        # Process products  
+        p_mol_ads, p_mol_site, p_mol_coef = [], [], []
+        for mol in prod[irxn]:
+            coef, ads_list, site_list = _parse_molecule(mol)
+            p_mol_coef.append(coef)
+            p_mol_ads.append(ads_list)
+            p_mol_site.append(site_list)
+        
+        p_ads.append(p_mol_ads)
+        p_site.append(p_mol_site)
+        p_coef.append(p_mol_coef)
 
     return r_ads, r_site, r_coef, p_ads, p_site, p_coef
 
@@ -363,93 +354,61 @@ def get_preexponential(reactionfile):
 
 
 def get_rate_coefficient(reactionfile, Afor, Arev, Efor, Erev, T):
-    """
-    Return rate coefficient.
-    Not needed for MATLAB use
-    """
-    # calculate rate constant
-    # (r_ads, r_site, r_coef,  p_ads, p_site, p_coef) = get_reac_and_prod(reactionfile)
-
+    """Calculate rate coefficients using Arrhenius equation."""
     rxn_num = get_number_of_reaction(reactionfile)
-
-    kfor = np.array(rxn_num, dtype="f")
-    krev = np.array(rxn_num, dtype="f")
-
-    RT = 8.314 * T / 1000.0  # in kJ/mol
-
-    for irxn in range(rxn_num):
-        kfor[irxn] = Afor[irxn] * np.exp(-Efor[irxn] / RT)
-        krev[irxn] = Arev[irxn] * np.exp(-Erev[irxn] / RT)
-
+    RT = 8.314 * T / 1000.0  # kJ/mol
+    
+    kfor = Afor * np.exp(-Efor / RT)
+    krev = Arev * np.exp(-Erev / RT)
+    
     return kfor, krev
 
 
 def read_speciesfile(speciesfile):
-    """
-    read species
-    """
-    f = open(speciesfile)
-
-    species = f.read()
-    species = species.replace('[', '')
-    species = species.replace(']', '')
-    species = species.replace(' ', '')
-    species = species.replace('\n', '')
-    species = species.replace('\'', '')
-    species = species.split(",")
-
-    return species
+    """Read species file and return list of species."""
+    with open(speciesfile) as f:
+        content = f.read().strip()
+    
+    # Remove brackets, spaces, quotes and split
+    import re
+    content = re.sub(r'[\[\]\s\'\"]+', '', content)
+    return [s.strip() for s in content.split(',') if s.strip()]
 
 
 def remove_parentheses(file):
-    """
-    remove parentheses -- maybe for MATLAB use
-    """
-    import os
-    tmpfile = "ttt.txt"
-    os.system('cat %s | sed "s/\[//g" > %s' % (file, tmpfile))
-    os.system('cat %s | sed "s/\]//g" > %s' % (tmpfile, file))
-    os.system('rm %s' % tmpfile)
+    """Remove square brackets from file - for MATLAB compatibility."""
+    with open(file, 'r') as f:
+        content = f.read()
+    
+    # Remove square brackets
+    content = content.replace('[', '').replace(']', '')
+    
+    with open(file, 'w') as f:
+        f.write(content)
+    
+    return content
 
 
 def get_species_num(*species):
-    """
-    Return what is the number of species in speciesfile.
-    If argument is not present, returns the number of species.
-    """
+    """Return species count or index from species.txt file."""
     from reaction_tools import read_speciesfile
-
-    speciesfile = "species.txt"
-    lst = read_speciesfile(speciesfile)
-
-    if len(species) == 0:
-        # null argument: number of species
-        return len(lst)
-    else:
-        # return species number
-        spec = species[0]
-        return lst.index(spec)
+    
+    lst = read_speciesfile("species.txt")
+    return len(lst) if not species else lst.index(species[0])
 
 
 def get_adsorption_sites(infile):
-    """
-    Read adsorption sites.
-    """
-    from reaction_tools import remove_space
-
-    f = open(infile, "r")
-
-    lines = f.readlines()
-
-    mol = list(range(len(lines)))
-    site = list(range(len(lines)))
-
-    for i, line in enumerate(lines):
-        aaa, bbb = line.replace("\n", "").split(":")
-        mol[i] = remove_space(aaa)
-        bbb = remove_space(bbb)
-        site[i] = bbb.split(",")
-
+    """Read adsorption sites from file."""
+    mol, site = [], []
+    
+    with open(infile, "r") as f:
+        for line in f:
+            line = line.strip()
+            if ':' in line:
+                mol_part, site_part = line.split(":", 1)
+                mol.append(remove_space(mol_part))
+                site.append(remove_space(site_part).split(","))
+    
     return mol, site
 
 
@@ -460,7 +419,7 @@ def find_closest_atom(surf, offset=(0, 0)):
     from ase.build import add_adsorbate
 
     dummy = Atom('H', (0, 0, 0))
-    ads_height = 0.1
+    ads_height = DEFAULT_ADS_HEIGHT
     add_adsorbate(surf, dummy, ads_height, position=(0, 0), offset=offset)
     natoms = len(surf.get_atomic_numbers())
     last = natoms - 1
@@ -474,85 +433,43 @@ def find_closest_atom(surf, offset=(0, 0)):
     return clothest
 
 
-def sort_atoms_by_z(atoms, elementwise=True):
-    """
-    Sort atoms by z-coordinate.
-
-    Args:
-        atoms: ASE Atoms object.
-        elementwise: Whether to sort by element-wise gruop. True or False.
-    Returns:
-        newatoms: Sorted Atoms object.
-        zcount: Element-wise list of each atoms index.
-    """
-    import collections
-
-    #
-    # keep information for original Atoms
-    #
-    tags = atoms.get_tags()
-    pbc = atoms.get_pbc()
-    cell = atoms.get_cell()
-    natoms = len(atoms)
-
-    dtype = [("idx", int), ("z", float)]
-    #
-    # get set of chemical symbols
-    #
-    symbols = atoms.get_chemical_symbols()
-    elements = sorted(set(symbols), key=symbols.index)
-    num_elem = []
-    for i in elements:
-        num_elem.append(symbols.count(i))
-
-    #
-    # loop over each groups
-    #
-    iatm = 0
-    newatoms = Atoms()
-    zcount = []
-
+def sort_atoms_by_z(atoms, elementwise=True, return_zcount=False):
+    """Sort atoms by z-coordinate."""
+    if not atoms:
+        return atoms if not return_zcount else (atoms, [])
+    
+    # Preserve original properties
+    positions = atoms.get_positions()
+    tags, pbc, cell = atoms.get_tags(), atoms.get_pbc(), atoms.get_cell()
+    
     if elementwise:
-        for inum in num_elem:
-            zlist = np.array([], dtype=dtype)
-            for idx in range(inum):
-                tmp = np.array([(iatm, atoms[iatm].z)], dtype=dtype)
-                zlist = np.append(zlist, tmp)
-                iatm += 1
-
-            zlist = np.sort(zlist, order="z")
-
-            for i in zlist:
-                idx = i[0]
-                newatoms.append(atoms[idx])
-
-            tmp = np.array([], dtype=float)
-            for val in zlist:
-                tmp = np.append(tmp, round(val[1], 2))
-            tmp = collections.Counter(tmp)
-            zcount.append(list(tmp.values()))
-
+        symbols = atoms.get_chemical_symbols()
+        unique_elements = list(dict.fromkeys(symbols))
+        sorted_atoms = Atoms()
+        zcount = []
+        
+        for element in unique_elements:
+            indices = [i for i, sym in enumerate(symbols) if sym == element]
+            z_coords = positions[indices, 2]
+            sorted_indices = np.argsort(z_coords)
+            
+            for idx in sorted_indices:
+                sorted_atoms.append(atoms[indices[idx]])
+            
+            if return_zcount:
+                rounded_z = np.round(z_coords, 2)
+                zcount.append(list(Counter(rounded_z).values()))
     else:
-        zlist = np.array([], dtype=dtype)
-        for idx in range(natoms):
-            tmp = np.array([(iatm, atoms[iatm].z)], dtype=dtype)
-            zlist = np.append(zlist, tmp)
-            iatm += 1
+        sorted_indices = np.argsort(positions[:, 2])
+        sorted_atoms = Atoms([atoms[i] for i in sorted_indices])
+        zcount = [] if return_zcount else None
 
-        zlist = np.sort(zlist, order="z")
+    # Restore properties
+    sorted_atoms.set_tags(tags)
+    sorted_atoms.set_pbc(pbc)
+    sorted_atoms.set_cell(cell)
 
-        for i in zlist:
-            idx = i[0]
-            newatoms.append(atoms[idx])
-
-    #
-    # restore tag, pbc, cell
-    #
-    newatoms.set_tags(tags)
-    newatoms.set_pbc(pbc)
-    newatoms.set_cell(cell)
-
-    return newatoms, zcount
+    return (sorted_atoms, zcount) if return_zcount else sorted_atoms
 
 
 def get_number_of_valence_electrons(atoms):
@@ -568,47 +485,30 @@ def get_number_of_valence_electrons(atoms):
 
 
 def read_charge(mol):
-    """
-    Read charge from molecule.
-    """
-    charge = 0.0  # initial
-    if "^" in mol:
-        neutral = False
-        mol, charge = mol.split('^')
-        charge = float(charge.replace('{', '').replace('}', '').replace('+', ''))
-    else:
-        neutral = True
-
-    return mol, neutral, charge
+    """Read charge from molecule."""
+    if "^" not in mol:
+        return mol, True, 0.0
+    
+    mol, charge_str = mol.split('^')
+    charge = float(charge_str.replace('{', '').replace('}', '').replace('+', ''))
+    return mol, False, charge
 
 
 def remove_side_and_flip(mol):
-    """
-    Remove SIDE and FLIP in molecule
-    """
-    if '-SIDEx' in mol:
-        mol = mol.replace('-SIDEx', '')
-    elif '-SIDEy' in mol:
-        mol = mol.replace('-SIDEy', '')
-    elif '-SIDE' in mol:
-        mol = mol.replace('-SIDE', '')
-    elif '-FLIP' in mol:
-        mol = mol.replace('-FLIP', '')
-    elif '-TILT' in mol:
-        mol = mol.replace('-TILT', '')
-    elif '-HIGH' in mol:
-        mol = mol.replace('-HIGH', '')
-
+    """Remove SIDE and FLIP suffixes from molecule."""
+    suffixes = ['-SIDEx', '-SIDEy', '-SIDE', '-FLIP', '-TILT', '-HIGH']
+    for suffix in suffixes:
+        if suffix in mol:
+            return mol.replace(suffix, '')
     return mol
 
 
 def neb_copy_contcar_to_poscar(nimages):
-    """
-    Copy 0X/CONTCAR to 0X/POSCAR after NEB run.
-    """
-    import os
-    for images in range(nimages):
-        os.system('cp %02d/CONTCAR %02d/POSCAR' % (images + 1, images + 1))
+    """Copy 0X/CONTCAR to 0X/POSCAR after NEB run."""
+    import shutil
+    for i in range(1, nimages + 1):
+        shutil.copy2(f'{i:02d}/CONTCAR', f'{i:02d}/POSCAR')
+    return True
 
 
 def make_it_closer_by_exchange(atom1, atom2, thre=0.05):
@@ -651,27 +551,10 @@ def make_it_closer_by_exchange(atom1, atom2, thre=0.05):
 
 
 def get_adsorbate_type(adsorbate, site):
-    """
-    Returns adsorbate type.
-
-    Args:
-        adsorbate (str): Molecule name.
-        site (str): Site name.
-    Returns:
-        adsorbate_type (str): Adsorbate type
-            "gaseous": gaseous molecule
-            "surface": bare surface
-            "adsorbed": adsorbed molecule
-    """
+    """Returns adsorbate type: 'gaseous', 'surface', or 'adsorbed'."""
     if site == "gas":
-        if "surf" in adsorbate:
-            ads_type = "surface"
-        else:
-            ads_type = "gaseous"
-    else:
-        ads_type = "adsorbed"
-
-    return ads_type
+        return "surface" if "surf" in adsorbate else "gaseous"
+    return "adsorbed"
 
 
 def make_surface_from_cif(
@@ -679,7 +562,7 @@ def make_surface_from_cif(
         layers: int=2,
         indices: list=[0, 0, 1],
         repeat: list=[1, 1, 1],
-        vacuum: float=8.0) -> Atoms:
+        vacuum: float=DEFAULT_VACUUM) -> Atoms:
     """
     Make a surface from a CIF file.
     """
@@ -716,97 +599,98 @@ def replace_element(atoms, from_element: str, to_element: str, percent=100):
 
 
 def run_packmol(xyz_file, a, num, outfile):
-    import os
-
+    """Run PACKMOL with specified parameters."""
     packmol = "/Users/ishi/packmol/packmol"
-    filetype = "xyz"
-
-    cell1 = [0.0, 0.0, 0.0, a, a, a]
-    cell2 = " ".join(map(str, cell1))
-
-    f = open("pack_tmp.inp", "w")
-    text = ["tolerance 2.0"             + "\n",
-            "output "     + outfile     + "\n",
-            "filetype "   + filetype    + "\n",
-            "structure "  + xyz_file    + "\n",
-            "  number "   + str(num)    + "\n",
-            "  inside box " + cell2     + "\n",
-            "end structure"]
-    f.writelines(text)
-    f.close()
-
-    run_string = packmol + " < pack_tmp.inp"
-
-    os.system(run_string)
-
-    # os.system("rm pack_tmp.inp")
+    cell_coords = " ".join(map(str, [0.0, 0.0, 0.0, a, a, a]))
+    
+    # Write input file
+    input_content = f"""tolerance 2.0
+output {outfile}
+filetype xyz
+structure {xyz_file}
+  number {num}
+  inside box {cell_coords}
+end structure"""
+    
+    with open("pack_tmp.inp", "w") as f:
+        f.write(input_content)
+    
+    result = os.system(f"{packmol} < pack_tmp.inp")
+    return result
 
 
 def json_to_csv(jsonfile, csvfile):
-    import json
+    """Convert JSON to CSV file."""
+    
+    def _process_ase_json_data(jsonfile):
+        """Common processing for ASE JSON files."""
+        with open(jsonfile, "r") as f:
+            d = json.load(f)
 
-    import pandas as pd
-    from pandas.io.json import json_normalize
-    f = open(jsonfile, "r")
-    d = json.load(f)
+        dd = []
+        for i in range(1, len(d)):
+            if str(i) in d:
+                dd.append(pd.json_normalize(d[str(i)]))
 
-    dd = []
-    nrec = len(d)
-    for i in range(1, nrec):
-        if str(i) in d:
-            tmp = d[str(i)]
-            dd.append(json_normalize(tmp))
+        if not dd:
+            return pd.DataFrame()
+            
+        ddd = pd.concat(dd)
 
-    ddd = pd.concat(dd)
+        # Clean column names
+        new_columns = []
+        for key in ddd.columns:
+            key = key.replace("calculator_parameters.", "")
+            key = key.replace("key_value_pairs.", "")
+            key = key.replace("data.", "")
+            new_columns.append(key)
+        ddd.columns = new_columns
 
-    newcol = []
-    for key in ddd.columns:
-        key = key.replace("calculator_parameters.", "")
-        key = key.replace("key_value_pairs.", "")
-        key = key.replace("data.", "")
-        newcol.append(key)
+        # Sort by "num" if available
+        if "num" in ddd.columns:
+            ddd = ddd.set_index("num").sort_index()
 
-    ddd.columns = newcol
-
-    # sort data by "num"
-    if "num" in ddd.columns:
-        ddd2 = ddd.set_index("num")
-        ddd  = ddd2.sort_index()
-
-    ddd.to_csv(csvfile)
+        return ddd
+    
+    df = _process_ase_json_data(jsonfile)
+    df.to_csv(csvfile)
+    return df
 
 
 def load_ase_json(jsonfile):
-    import json
+    """Load ASE JSON file and return as DataFrame."""
+    
+    def _process_ase_json_data(jsonfile):
+        """Common processing for ASE JSON files."""
+        with open(jsonfile, "r") as f:
+            d = json.load(f)
 
-    import pandas as pd
-    f = open(jsonfile, "r")
-    d = json.load(f)
+        dd = []
+        for i in range(1, len(d)):
+            if str(i) in d:
+                dd.append(pd.json_normalize(d[str(i)]))
 
-    dd = []
-    nrec = len(d)
-    for i in range(1, nrec):
-        if str(i) in d:
-            tmp = d[str(i)]
-            dd.append(pd.json_normalize(tmp))
+        if not dd:
+            return pd.DataFrame()
+            
+        ddd = pd.concat(dd)
 
-    ddd = pd.concat(dd)
+        # Clean column names
+        new_columns = []
+        for key in ddd.columns:
+            key = key.replace("calculator_parameters.", "")
+            key = key.replace("key_value_pairs.", "")
+            key = key.replace("data.", "")
+            new_columns.append(key)
+        ddd.columns = new_columns
 
-    newcol = []
-    for key in ddd.columns:
-        key = key.replace("calculator_parameters.", "")
-        key = key.replace("key_value_pairs.", "")
-        key = key.replace("data.", "")
-        newcol.append(key)
+        # Sort by "num" if available
+        if "num" in ddd.columns:
+            ddd = ddd.set_index("num").sort_index()
 
-    ddd.columns = newcol
-
-    # sort data by "num"
-    if "num" in ddd.columns:
-        ddd2 = ddd.set_index("num")
-        ddd  = ddd2.sort_index()
-
-    return ddd
+        return ddd
+    
+    return _process_ase_json_data(jsonfile)
 
 
 def delete_num_from_json(num, jsonfile):
@@ -815,55 +699,32 @@ def delete_num_from_json(num, jsonfile):
     db = connect(jsonfile)
     id_ = db.get(num=num).id
     db.delete([id_])
+    return id_
 
 
 def sort_atoms_by(atoms, xyz="x", elementwise=True):
-    # keep information for original Atoms
-    tags = atoms.get_tags()
-    pbc  = atoms.get_pbc()
-    cell = atoms.get_cell()
-    dtype = [("idx", int), (xyz, float)]
-
+    """Sort atoms by specified coordinate (x, y, z)."""
+    # Preserve original properties
+    tags, pbc, cell = atoms.get_tags(), atoms.get_pbc(), atoms.get_cell()
+    coord_map = {"x": 0, "y": 1, "z": 2}
+    coord_idx = coord_map.get(xyz, 2)
+    
+    def _get_coord_value(atom):
+        return atom.position[coord_idx]
+    
     newatoms = Atoms()
-    symbols = list(set(atoms.get_chemical_symbols()))
+    
     if elementwise:
+        symbols = list(set(atoms.get_chemical_symbols()))
         for symbol in symbols:
-            subatoms = Atoms(list(filter(lambda x: x.symbol == symbol, atoms)))
-            atomlist = np.array([], dtype=dtype)
-            for idx, atom in enumerate(subatoms):
-                if xyz == "x":
-                    tmp = np.array([(idx, atom.x)], dtype=dtype)
-                elif xyz == "y":
-                    tmp = np.array([(idx, atom.y)], dtype=dtype)
-                else:
-                    tmp = np.array([(idx, atom.z)], dtype=dtype)
-
-                atomlist = np.append(atomlist, tmp)
-
-            atomlist = np.sort(atomlist, order=xyz)
-
-            for i in atomlist:
-                idx = i[0]
-                newatoms.append(subatoms[idx])
+            subatoms = [atom for atom in atoms if atom.symbol == symbol]
+            subatoms.sort(key=_get_coord_value)
+            newatoms.extend(subatoms)
     else:
-        atomlist = np.array([], dtype=dtype)
-        for idx, atom in enumerate(atoms):
-            if xyz == "x":
-                tmp = np.array([(idx, atom.x)], dtype=dtype)
-            elif xyz == "y":
-                tmp = np.array([(idx, atom.y)], dtype=dtype)
-            else:
-                tmp = np.array([(idx, atom.z)], dtype=dtype)
+        sorted_atoms = sorted(atoms, key=_get_coord_value)
+        newatoms.extend(sorted_atoms)
 
-            atomlist = np.append(atomlist, tmp)
-
-        atomlist = np.sort(atomlist, order=xyz)
-
-        for i in atomlist:
-            idx = i[0]
-            newatoms.append(atoms[idx])
-
-    # restore
+    # Restore properties
     newatoms.set_tags(tags)
     newatoms.set_pbc(pbc)
     newatoms.set_cell(cell)
@@ -872,69 +733,48 @@ def sort_atoms_by(atoms, xyz="x", elementwise=True):
 
 
 def get_number_of_layers(atoms):
-    symbols = list(set(atoms.get_chemical_symbols()))
-    symbols = sorted(symbols)
+    """Get number of z-layers for each element."""
+    symbols = sorted(set(atoms.get_chemical_symbols()))
     nlayers = []
 
     for symbol in symbols:
-        subatoms = Atoms(list(filter(lambda x: x.symbol == symbol, atoms)))
-        pos  = subatoms.positions
-        zpos = np.round(pos[:, 2], decimals=4)
-        nlayers.append(len(list(set(zpos))))
+        zpos = atoms.positions[[i for i, s in enumerate(atoms.get_chemical_symbols()) if s == symbol]][:, 2]
+        nlayers.append(len(set(np.round(zpos, decimals=4))))
 
     return nlayers
 
 
 def set_tags_by_z(atoms, elementwise=True):
-    import pandas as pd
-
-    pbc  = atoms.get_pbc()
-    cell = atoms.get_cell()
-
+    """Set tags based on z-coordinate layers."""
+    pbc, cell = atoms.get_pbc(), atoms.get_cell()
+    
+    def _create_z_tags(subatoms):
+        """Create z-based tags for a set of atoms."""
+        zpos = np.round(subatoms.positions[:, 2], decimals=1)
+        unique_z = np.sort(list(set(zpos)))
+        bins = np.insert(unique_z + 1.0e-2, 0, 0)
+        labels = list(range(len(bins) - 1))
+        return pd.cut(zpos, bins=bins, labels=labels).tolist()
+    
     newatoms = Atoms()
-    symbols = list(set(atoms.get_chemical_symbols()))
-    symbols = sorted(symbols)
-
+    
     if elementwise:
+        symbols = sorted(set(atoms.get_chemical_symbols()))
         for symbol in symbols:
-            subatoms = Atoms(list(filter(lambda x: x.symbol == symbol, atoms)))
-            pos  = subatoms.positions
-            zpos = np.round(pos[:, 2], decimals=1)
-            bins = list(set(zpos))
-            bins = np.sort(bins)
-            bins = np.array(bins) + 1.0e-2
-            bins = np.insert(bins, 0, 0)
-
-            labels = []
-            for i in range(len(bins)-1):
-                labels.append(i)
-
-            tags = pd.cut(zpos, bins=bins, labels=labels).tolist()
-
+            subatoms = Atoms([atom for atom in atoms if atom.symbol == symbol])
+            tags = _create_z_tags(subatoms)
             subatoms.set_tags(tags)
             newatoms += subatoms
     else:
         subatoms = atoms.copy()
-        pos  = subatoms.positions
-        zpos = np.round(pos[:, 2], decimals=1)
-        bins = list(set(zpos))
-        bins = np.sort(bins)
-        bins = np.array(bins) + 1.0e-2
-        bins = np.insert(bins, 0, 0)
-
-        labels = []
-        for i in range(len(bins)-1):
-            labels.append(i)
-
-        tags = pd.cut(zpos, bins=bins, labels=labels).tolist()
-
+        tags = _create_z_tags(subatoms)
         subatoms.set_tags(tags)
         newatoms += subatoms
 
-    # restore
+    # Restore properties
     newatoms.set_pbc(pbc)
     newatoms.set_cell(cell)
-
+    
     return newatoms
 
 
@@ -998,8 +838,9 @@ def fix_lower_surface(atoms, adjust_layer=None):
     from ase.constraints import FixAtoms
 
     newatoms = atoms.copy()
-    newatoms = sort_atoms_by(newatoms, xyz="z")  # sort
-    newatoms = set_tags_by_z(newatoms)  # set tags
+    # newatoms = sort_atoms_by(newatoms, xyz="z")  # sort
+    newatoms = sort_atoms_by_z(atoms=newatoms)
+    newatoms = set_tags_by_z(atoms=newatoms)  # set tags
 
     # prepare symbol dict
     symbols_ = list(set(atoms.get_chemical_symbols()))
@@ -1046,17 +887,11 @@ def fix_lower_surface(atoms, adjust_layer=None):
     return newatoms
 
 
-def find_highest(json, score):
-    import pandas as pd
-
-    df = pd.read_json(json)
-    df = df.set_index("unique_id")
-    df = df.dropna(subset=[score])
-    df = df.sort_values(score, ascending=False)
-
-    best = df.iloc[0].name
-
-    return best
+def find_highest(json_file, score):
+    """Find entry with highest score from JSON file."""
+    df = pd.read_json(json_file).set_index("unique_id")
+    df = df.dropna(subset=[score]).sort_values(score, ascending=False)
+    return df.iloc[0].name
 
 
 def make_step(atoms):
@@ -1082,166 +917,103 @@ def make_step(atoms):
 
 
 def mirror_invert(atoms, direction="x"):
-    """
-    Mirror invert the surface in the specified direction.
-
-    Args:
-        atoms: Atoms object
-        direction: "x", "y", or "z"
-    """
-    pos  = atoms.get_positions()
-    cell = atoms.cell
-
-    # set position and cell
-    if direction == "x":
-        pos[:, 0] = -pos[:, 0]
-        cell = [[-cell[i][0], cell[i][1], cell[i][2]] for i in range(3)]
-    elif direction == "y":
-        pos[:, 1] = -pos[:, 1]
-        cell = [[cell[i][0], -cell[i][1], cell[i][2]] for i in range(3)]
-    elif direction == "z":
-        highest_z = pos[:, 2].max()
-        atoms.translate([0, 0, -highest_z])
-        pos[:, 2] = -pos[:, 2]
-        cell = [[cell[i][0], cell[i][1], -cell[i][2]] for i in range(3)]
-    else:
-        print("direction must be x, y, or z")
-        quit()
-
+    """Mirror invert the surface in the specified direction."""
+    pos = atoms.get_positions()
+    cell = atoms.cell.copy()
+    
+    coord_map = {"x": 0, "y": 1, "z": 2}
+    if direction not in coord_map:
+        raise ValueError("direction must be x, y, or z")
+    
+    coord_idx = coord_map[direction]
+    
+    if direction == "z":
+        atoms.translate([0, 0, -pos[:, 2].max()])
+    
+    pos[:, coord_idx] = -pos[:, coord_idx]
+    cell[coord_idx] = -cell[coord_idx]
+    
     atoms.set_positions(pos)
-
-    cell = np.array(cell)
-    cell = np.round(cell + 1.0e-5, decimals=4)
-    atoms.set_cell(cell)
-
+    atoms.set_cell(np.round(cell + 1.0e-5, decimals=4))
+    
     return atoms
 
 
 def make_barplot(labels=None, values=None, threshold=100, ylabel="y-value",
                  fontsize=16, filename="bar_plot.png"):
-    """
-    Make a bar plot of values with labels, filtering out values above the threshold.
-
-    Args:
-        labels: List of labels for the x-axis
-        values: List of values for the y-axis
-        threshold: Maximum value to include in the plot
-    """
+    """Make a bar plot of values with labels, filtering by threshold."""
     import matplotlib.pyplot as plt
-    import numpy as np
+    
+    def _style_plot_axes(ax, fontsize=16):
+        """Apply common styling to plot axes."""
+        for axis in ["top", "bottom", "left", "right"]:
+            ax.spines[axis].set_linewidth(2)
+        ax.xaxis.set_tick_params(direction="out", labelsize=fontsize, width=2, pad=10)
+        ax.yaxis.set_tick_params(direction="out", labelsize=fontsize, width=2, pad=10)
 
-    labels = [label for label, value in zip(labels, values) if value < threshold]
-    values = [value for value in values if value < threshold]
+    # Filter and sort data
+    filtered_data = [(label, value) for label, value in zip(labels, values) if value < threshold]
+    filtered_data.sort(key=lambda x: x[1])
+    sorted_labels, sorted_values = zip(*filtered_data) if filtered_data else ([], [])
 
-    sorted_indices = np.argsort(values)
-    sorted_labels  = [labels[i] for i in sorted_indices]
-    sorted_values  = [values[i] for i in sorted_indices]
-
-    fig = plt.figure(figsize=(8, 5))
-    ax = fig.add_subplot(1, 1, 1)
-
+    fig, ax = plt.subplots(figsize=(8, 5))
     plt.bar(sorted_labels, sorted_values, color="skyblue")
-
-    for axis in ["top", "bottom", "left", "right"]:
-        ax.spines[axis].set_linewidth(2)
-
-    ax.xaxis.set_tick_params(direction="out", labelsize=fontsize, width=2, pad=10)
-    ax.yaxis.set_tick_params(direction="out", labelsize=fontsize, width=2, pad=10)
+    
+    _style_plot_axes(ax, fontsize)
     ax.set_ylabel(ylabel, fontsize=fontsize+4, labelpad=20)
-
     plt.xticks(rotation=45, verticalalignment="top", horizontalalignment="right")
     plt.savefig(filename, dpi=300, bbox_inches="tight")
+    plt.close()
+    return filename
 
 
 def make_energy_diagram(deltaEs=None, has_barrier=False, rds=1, savefig=True,
                         figname="ped.png", xticklabels=None):
-    """Generate potential energy diagram for reaction steps.
-
-    Args:
-        deltaEs (list or numpy.ndarray): Energy differences between reaction steps
-        has_barrier (bool, optional): Include transition state barrier. Defaults to False.
-        rds (int, optional): Index of rate determining step for barrier calculation. Defaults to 1.
-        savefig (bool, optional): Save the figure to a file. Defaults to True.
-        figname (str, optional): Output filename. Defaults to "ped.png".
-        xticklabels (list, optional): Labels for reaction steps. Defaults to None.
-
-    Returns:
-        tuple: Plot data (x coordinates array, y coordinates array)
-
-    Note:
-        When has_barrier is True, the function calculates transition state barrier
-        using Brønsted-Evans-Polanyi (BEP) relationship:
-        Ea = alpha * deltaE + beta
-        where alpha = 0.87 and beta = 1.34
-    """
-    import numpy as np
+    """Generate potential energy diagram for reaction steps using BEP relationship."""
     import matplotlib.pyplot as plt
     import seaborn as sns
     from scipy import interpolate
 
-    # Convert input to numpy array
     deltaEs = np.array(deltaEs)
     num_rxn = len(deltaEs)
 
     # Calculate cumulative energies
-    ped = np.zeros(1)
-    for i in range(num_rxn):
-        ped = np.append(ped, ped[-1] + deltaEs[i])
-
-    y1 = ped
+    ped = np.cumsum(np.insert(deltaEs, 0, 0))
+    y1 = ped.copy()
 
     # Handle transition state barriers using BEP relationship
     if has_barrier:
-        alpha = 0.87  # BEP parameters
-        beta = 1.34
-        Ea = y1[rds] * alpha + beta  # Calculate barrier height
-
-        # Extend x length after transition state curve
+        Ea = y1[rds] * BEP_ALPHA + BEP_BETA
         y1 = np.insert(y1, rds, y1[rds])
         num_rxn += 1
 
-    # Generate interpolation coordinates
-    points = 500  # Number of points for smooth curve
+    # Generate interpolation
+    points = 500
     x1_latent = np.linspace(-0.5, num_rxn + 0.5, points)
     x1 = np.arange(0, num_rxn + 1)
     f1 = interpolate.interp1d(x1, y1, kind="nearest", fill_value="extrapolate")
 
-    # Replace rate determining step by quadratic curve for barrier
+    # Create barrier curve if needed
     if has_barrier:
-        x2 = [rds - 0.5, rds, rds + 0.5]
-        x2 = np.array(x2)
+        x2 = np.array([rds - 0.5, rds, rds + 0.5])
         y2 = np.array([y1[rds-1], Ea, y1[rds+1]])
         f2 = interpolate.interp1d(x2, y2, kind="quadratic")
+        y = np.array([max(f1(i), f2(i) if rds-0.5 <= i <= rds+0.5 else -1e10) for i in x1_latent])
+    else:
+        y = f1(x1_latent)
 
-    # Combine nearest neighbor interpolation with barrier curve
-    y = np.array([])
-    for i in x1_latent:
-        val1 = f1(i)
-        val2 = -1.0e10
-        if has_barrier:
-            val2 = f2(i)
-        y = np.append(y, max(val1, val2))
-
-    # Generate and save the plot
     if savefig:
-        # Set plot style
-        sns.set(style="darkgrid", rc={"lines.linewidth": 2.0, "figure.figsize": (10, 4)})
-
-        # Create plot
-        p = sns.lineplot(x=x1_latent, y=y, sizes=(0.5, 1.0))
-
-        # Set labels and font sizes
+        sns.set_theme(style="darkgrid", rc={"lines.linewidth": 2.0, "figure.figsize": (10, 4)})
+        p = sns.lineplot(x=x1_latent, y=y)
         p.set_xlabel("Steps", fontsize=16)
         p.set_ylabel("Energy (eV)", fontsize=16)
         p.tick_params(axis="both", labelsize=14)
         p.yaxis.set_major_formatter(lambda x, p: f"{x:.1f}")
-
-        # Set x-axis labels if provided
-        if xticklabels is not None:
+        
+        if xticklabels:
             xticklabels.insert(0, "dummy")
             p.set_xticklabels(xticklabels, rotation=45, ha="right")
-
-        # Adjust layout and save
+        
         plt.tight_layout()
         plt.savefig(figname)
 
@@ -1249,29 +1021,24 @@ def make_energy_diagram(deltaEs=None, has_barrier=False, rds=1, savefig=True,
 
 
 def add_data_to_jsonfile(jsonfile, data):
-    """
-    add data to database
-    """
-    import json
-    import os
-
-    if not os.path.exists(jsonfile):
+    """Add data to JSON database file."""
+    # Initialize file if it doesn't exist
+    if not Path(jsonfile).exists():
         with open(jsonfile, "w") as f:
             json.dump([], f)
 
+    # Read, modify, and write back
     with open(jsonfile, "r") as f:
         datum = json.load(f)
-
-        # remove "doing" record as calculation is done
-        for i in range(len(datum)):
-            if datum[i]["status"] == "doing":
-                datum.pop(i)
-                break
-
-        datum.append(data)
+    
+    # Remove any "doing" status records
+    datum = [d for d in datum if d.get("status") != "doing"]
+    datum.append(data)
 
     with open(jsonfile, "w") as f:
         json.dump(datum, f, indent=4)
+    
+    return len(datum)
 
 
 def get_row_by_unique_id(db, unique_id: str) -> Any:
@@ -1370,14 +1137,7 @@ def setup_logging(log_level: str = "INFO") -> logging.Logger:
 
 def set_initial_magmoms(atoms: Atoms) -> Atoms:
     """Set initial magnetic moments based on element type."""
-    magmom_dict = {
-        "Fe": 5.0, "Co": 3.0, "Ni": 2.0, "Mn": 5.0, "Cr": 4.0,
-        "O": 0.0, "H": 0.0, "C": 0.0, "N": 0.0, "S": 0.0
-    }
-    magmoms = []
-    for symbol in atoms.get_chemical_symbols():
-        magmoms.append(magmom_dict.get(symbol, 0.0))
-
+    magmoms = [MAGMOM_DICT.get(symbol, 0.0) for symbol in atoms.get_chemical_symbols()]
     atoms.set_initial_magnetic_moments(magmoms)
     return atoms
 
@@ -1389,7 +1149,7 @@ def set_calculator(atoms: Atoms, kind: str, calculator: str = "mace",
 
     Args:
         atoms: ASE atoms object
-        kind: "gas" / "slab" / "bulk"
+        kind: "molecule" / "surface" / "bulk"
         calculator: "vasp" / "mattersim" / "mace"- calculator type
         yaml_path: Path to YAML configuration file
         calc_directory: Calculation directory for VASP
@@ -1402,10 +1162,6 @@ def set_calculator(atoms: Atoms, kind: str, calculator: str = "mace",
     import torch
 
     calculator = calculator.lower()
-
-    # optimizer options
-    fmax = 0.10
-    steps = 100
 
     if calculator == "vasp":
         from ase.calculators.vasp import Vasp
@@ -1443,7 +1199,6 @@ def set_calculator(atoms: Atoms, kind: str, calculator: str = "mace",
     elif calculator == "mattersim":
         from mattersim.forcefield.potential import MatterSimCalculator
         from ase.filters import ExpCellFilter
-        from ase.optimize import FIRE
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
         atoms.calc = MatterSimCalculator(load_path="MatterSim-v1.0.0-5M.pth", device=device)
@@ -1451,10 +1206,6 @@ def set_calculator(atoms: Atoms, kind: str, calculator: str = "mace",
         # Apply CellFilter for bulk calculations
         if kind == "bulk":
             atoms = ExpCellFilter(atoms)
-
-        # Perform structure optimization
-        optimizer = FIRE(atoms)
-        optimizer.run(fmax=fmax, steps=steps)
 
         if isinstance(atoms, ExpCellFilter):
             atoms = atoms.atoms
@@ -1465,7 +1216,6 @@ def set_calculator(atoms: Atoms, kind: str, calculator: str = "mace",
         # Import the custom function
         from mattersim_matpes import mattersim_matpes_d3_calculator
         from ase.filters import ExpCellFilter
-        from ase.optimize import FIRE
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -1498,10 +1248,6 @@ def set_calculator(atoms: Atoms, kind: str, calculator: str = "mace",
         if kind == "bulk":
             atoms = ExpCellFilter(atoms)
 
-        # Perform structure optimization
-        optimizer = FIRE(atoms)
-        optimizer.run(fmax=fmax, steps=steps)
-
         if isinstance(atoms, ExpCellFilter):
             atoms = atoms.atoms
         else:
@@ -1511,7 +1257,6 @@ def set_calculator(atoms: Atoms, kind: str, calculator: str = "mace",
         # Import the custom function
         from mattersim_matpes import mattersim_matpes_d3_calculator
         from ase.filters import ExpCellFilter
-        from ase.optimize import FIRE
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -1542,10 +1287,6 @@ def set_calculator(atoms: Atoms, kind: str, calculator: str = "mace",
         if kind == "bulk":
             atoms = ExpCellFilter(atoms)
 
-        # Perform structure optimization
-        optimizer = FIRE(atoms)
-        optimizer.run(fmax=fmax, steps=steps)
-
         if isinstance(atoms, ExpCellFilter):
             atoms = atoms.atoms
         else:
@@ -1554,13 +1295,13 @@ def set_calculator(atoms: Atoms, kind: str, calculator: str = "mace",
     elif calculator == "mace":
         from mace.calculators import mace_mp
         from ase.filters import ExpCellFilter
-        from ase.optimize import FIRE
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
         base_url = "https://github.com/ACEsuit/mace-foundations/releases/download/mace_matpes_0/"
-        model_url = "MACE-matpes-pbe-omat-ft.model"
+        # model = "MACE-matpes-pbe-omat-ft.model"
+        model = "MACE-matpes-r2scan-omat-ft.model"
 
-        mace_calculator = mace_mp(model=base_url + model_url,
+        mace_calculator = mace_mp(model=base_url + model,
                                   dispersion=True,
                                   dispersion_xc="pbe",
                                   default_dtype="float64",
@@ -1577,7 +1318,14 @@ def set_calculator(atoms: Atoms, kind: str, calculator: str = "mace",
                         return self  # 何も変更せずに自身を返す
 
                     return protected_set
-                return getattr(self._calculator, name)
+
+                # Handle special methods used by deepcopy
+                if name.startswith('__') and name.endswith('__'):
+                    raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+                try:
+                    return getattr(self._calculator, name)
+                except AttributeError:
+                    raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
 
         # 保護されたカリキュレータをセット
         atoms.calc = ProtectedMaceCalculator(mace_calculator)
@@ -1585,10 +1333,6 @@ def set_calculator(atoms: Atoms, kind: str, calculator: str = "mace",
         # Apply CellFilter for bulk calculations
         if kind == "bulk":
             atoms = ExpCellFilter(atoms)
-
-        # Perform structure optimization
-        optimizer = FIRE(atoms)
-        optimizer.run(fmax=fmax, steps=steps)
 
         if isinstance(atoms, ExpCellFilter):
             atoms = atoms.atoms
@@ -1603,22 +1347,11 @@ def set_calculator(atoms: Atoms, kind: str, calculator: str = "mace",
 
 def auto_lmaxmix(atoms):
     """Automatically set lmaxmix when d/f elements are present"""
-    d_elements = {
-        "Sc", "Ti", "V", "Cr", "Mn", "Fe", "Co", "Ni", "Cu", "Zn",
-        "Y", "Zr", "Nb", "Mo", "Tc", "Ru", "Rh", "Pd", "Ag", "Cd",
-        "Hf", "Ta", "W", "Re", "Os", "Ir", "Pt", "Au", "Hg"
-    }
-    f_elements = {
-        "La", "Ce", "Pr", "Nd", "Pm", "Sm", "Eu", "Gd", "Tb", "Dy",
-        "Ho", "Er", "Tm", "Yb", "Lu", "Ac", "Th", "Pa", "U", "Np",
-        "Pu", "Am", "Cm", "Bk", "Cf", "Es", "Fm", "Md", "No", "Lr"
-    }
-
     symbols = set(atoms.get_chemical_symbols())
 
-    if symbols & f_elements:
+    if symbols & F_ELEMENTS:
         lmaxmix_value = 6
-    elif symbols & d_elements:
+    elif symbols & D_ELEMENTS:
         lmaxmix_value = 4
     else:
         lmaxmix_value = 2
@@ -1646,6 +1379,7 @@ def plot_free_energy_diagram(deltaGs: List[float], steps: List[str], work_dir: P
     plt.tight_layout()
     plt.savefig(work_dir / "free_energy_diagram.png", dpi=300, bbox_inches='tight')
     plt.close()
+    return str(work_dir / "free_energy_diagram.png")
 
 
 def convert_numpy_types(obj):
@@ -1663,150 +1397,100 @@ def convert_numpy_types(obj):
     return obj
 
 
-def parallel_displacement(atoms, vacuum=15.0):
-    """
-    Translate slab in z-direction so the lowest point becomes z=0,
-    and add specified vacuum layer (vacuum[Å]) to the top (positive z-direction).
-
-    Note:
-        - This function assumes that the slab's surface normal direction aligns with the z-axis.
-        - For oblique cells, perform rotation preprocessing beforehand.
-
+def parallel_displacement(atoms, vacuum=DEFAULT_VACUUM):
+    """Translate surface in z-direction so the lowest point becomes z=0.
+    
     Args:
-        atoms: ASE Atoms object (slab, preferably generated without vacuum option)
-        vacuum: Thickness of vacuum layer to add (Å). Default is 15.0 Å.
-
-    Returns:
-        New ASE Atoms object with atomic positions shifted to z=0 bottom alignment
-        and cell z-axis length set to (slab height + vacuum).
+        atoms: ASE Atoms object (surface)
+        vacuum: Thickness of vacuum layer to add (Å)
     """
     # Create copy to avoid modifying original object
-    slab = atoms.copy()
+    surf = atoms.copy()
 
     # Get current atomic positions and calculate minimum z value
-    positions = slab.get_positions()
+    positions = surf.get_positions()
     z_min = positions[:, 2].min()
 
-    # Translate entire slab in z-direction so lowest point becomes z=0
-    slab.translate([0, 0, -z_min])
+    # Translate entire surf in z-direction so lowest point becomes z=0
+    surf.translate([0, 0, -z_min])
 
     # Get maximum z coordinate after translation
-    z_max = slab.get_positions()[:, 2].max()
-    # Calculate new z-axis length (slab height + vacuum)
+    z_max = surf.get_positions()[:, 2].max()
+    # Calculate new z-axis length (surf height + vacuum)
     new_z_length = z_max + vacuum
 
     # Get cell matrix and set z-direction size to new length
     # Here we assume the cell's third vector aligns with z-direction
-    cell = slab.get_cell().copy()
+    cell = surf.get_cell().copy()
     # For safety, reset z-axis component to [0, 0, new_z_length]
     cell[2] = [0.0, 0.0, new_z_length]
-    slab.set_cell(cell, scale_atoms=False)  # scale_atoms=False updates only cell, not atomic coordinates
+    surf.set_cell(cell, scale_atoms=False)  # scale_atoms=False updates only cell, not atomic coordinates
 
-    return slab
+    return surf
 
 
-def make_plot():
-    """ some plot """
+def plot_energy_diagram(steps, values, color='blue', labels=None,
+                        label=None, line_width=0.3, alpha=1.0, marker='o',
+                        markersize=5, figname=None):
+    """Helper function to plot a energy profile with consistent styling."""
     import matplotlib.pyplot as plt
 
-    # Reaction step labels
-    labels = [
-        "O$_2$ + 2H$_2$", "OOH* + 1.5H$_2$", "O* + H$_2$O + H$_2$",
-        "OH* + H$_2$O + 0.5H$_2$", "* + 2H$_2$O",
-    ]
+    # Plot horizontal lines
+    for i, step in enumerate(steps):
+        line_label = label if i == 0 else None
+        plt.hlines(values[i], step - line_width, step + line_width,
+                   color=color, alpha=alpha, linewidth=2.5, label=line_label)
 
-    # Steps and relative profiles
+    # Connect with dashed lines
+    for i in range(len(steps) - 1):
+        plt.plot([steps[i] + line_width, steps[i + 1] - line_width],
+                 [values[i], values[i + 1]], '--', color=color, alpha=alpha, linewidth=1.0)
+
+    plt.xticks(steps, labels, rotation=45, ha='right')
+    plt.tight_layout()
+
+    # Add markers
+    plt.plot(steps, values, marker, color=color, alpha=alpha,
+             markersize=markersize, linestyle='none')
+
+    if figname is not None:
+        plt.savefig(figname)
+
+
+def make_plot(labels=None):
+    """Generate ORR free energy diagram with multiple potential profiles."""
+    import matplotlib.pyplot as plt
+
+    # Define reaction step labels and data
+    if labels is None:
+        labels = ["O$_2$ + 2H$_2$", "OOH* + 1.5H$_2$", "O* + H$_2$O + H$_2$",
+                  "OH* + H$_2$O + 0.5H$_2$", "* + 2H$_2$O"]
+    
     steps = np.arange(reaction_count + 1)
-    g0_shift = g_profile_u0 - g_profile_u0[-1]
-    geq_shift = g_profile_ueq - g_profile_ueq[-1]
-    gul_shift = g_profile_ul - g_profile_ul[-1]
-
-    # Colors for different potential profiles
-    u0_color = 'black'  # U=0V is black
-    ueq_color = 'green'  # U=1.23V is green
-    ul_color = 'blue'  # U=UL is blue
-
-    # Horizontal line width
+    profiles = {
+        'U=0V': (g_profile_u0 - g_profile_u0[-1], 'black', 0.6, 'o', 4),
+        f'U_L={limiting_potential:.2f}V': (g_profile_ul - g_profile_ul[-1], 'blue', 1.0, 's', 5),
+        f'U={equilibrium_potential}V': (g_profile_ueq - g_profile_ueq[-1], 'green', 0.8, 'o', 6)
+    }
+    
     line_width = 0.3
-
-    # Create figure
     plt.figure(figsize=(8, 7))
-
-    # ------ U=0V profile ------
-    # First point with label
-    plt.hlines(g0_shift[0], steps[0] - line_width, steps[0] + line_width,
-               color=u0_color, alpha=0.6, linewidth=2.5, label="U = 0 V")
-
-    # Remaining points without label
-    for i in range(1, len(steps)):
-        plt.hlines(g0_shift[i], steps[i] - line_width, steps[i] + line_width,
-                   color=u0_color, alpha=0.6, linewidth=2.5)
-
-    # Connect points with dashed lines
-    for i in range(len(steps) - 1):
-        plt.plot([steps[i] + line_width, steps[i + 1] - line_width],
-                 [g0_shift[i], g0_shift[i + 1]],
-                 '--', color=u0_color, alpha=0.6, linewidth=1.0)
-
-    # Add markers
-    plt.plot(steps, g0_shift, 'o', color=u0_color, alpha=0.6,
-             markersize=4, linestyle='none')
-
-    # ------ U=UL (Limiting Potential) profile ------
-    # First point with label
-    plt.hlines(gul_shift[0], steps[0] - line_width, steps[0] + line_width,
-               color=ul_color, linewidth=2.5,
-               label=f"U$_{{L}}$ = {limiting_potential:.2f} V")
-
-    # Remaining points without label
-    for i in range(1, len(steps)):
-        plt.hlines(gul_shift[i], steps[i] - line_width, steps[i] + line_width,
-                   color=ul_color, linewidth=2.5)
-
-    # Connect points with dashed lines
-    for i in range(len(steps) - 1):
-        plt.plot([steps[i] + line_width, steps[i + 1] - line_width],
-                 [gul_shift[i], gul_shift[i + 1]],
-                 '--', color=ul_color, linewidth=1.0)
-
-    # Add markers
-    plt.plot(steps, gul_shift, 's', color=ul_color, markersize=5, linestyle='none')
-
-    # ------ U=Equilibrium (1.23V) profile ------
-    # First point with label
-    plt.hlines(geq_shift[0], steps[0] - line_width, steps[0] + line_width,
-               color=ueq_color, alpha=0.8, linewidth=2.5,
-               label=f"U = {equilibrium_potential} V")
-
-    # Remaining points without label
-    for i in range(1, len(steps)):
-        plt.hlines(geq_shift[i], steps[i] - line_width, steps[i] + line_width,
-                   color=ueq_color, alpha=0.8, linewidth=2.5)
-
-    # Connect points with dashed lines
-    for i in range(len(steps) - 1):
-        plt.plot([steps[i] + line_width, steps[i + 1] - line_width],
-                 [geq_shift[i], geq_shift[i + 1]],
-                 '--', color=ueq_color, alpha=0.8, linewidth=1.0)
-
-    # Add markers
-    plt.plot(steps, geq_shift, 'o', color=ueq_color, alpha=0.8,
-             markersize=6, linestyle='none')
-
+    
+    # Plot each profile
+    for label, (profile_data, color, alpha, marker, markersize) in profiles.items():
+        plot_energy_diagram(steps, profile_data, color, label, line_width, alpha, marker, markersize)
+    
     # Formatting
     plt.xticks(steps, labels, rotation=15, ha='right')
     plt.ylabel("ΔG (eV)", fontsize=12, fontweight='bold')
-    plt.xlabel("Reaction Coordinate", fontsize=12, fontweight='bold')
+    plt.xlabel("Reaction Coordinate", fontsize=12, fontweight='bold') 
     plt.title("4e⁻ ORR Free-Energy Diagram", fontsize=14, fontweight='bold')
     plt.grid(True, linestyle='--', alpha=0.3)
-
-    # Add legend and horizontal zero line
     plt.legend(loc='upper right', fontsize=10)
     plt.axhline(y=0, color='black', linestyle='-', alpha=0.5, linewidth=0.8)
-
+    
     plt.tight_layout()
-
-    # Save figure
-    figure_path = output_dir / "ORR_free_energy_diagram.png"
-    plt.savefig(figure_path, dpi=300, bbox_inches='tight')
+    plt.savefig(output_dir / "ORR_free_energy_diagram.png", dpi=300, bbox_inches='tight')
     plt.close()
+
+    return str(output_dir / "ORR_free_energy_diagram.png")
