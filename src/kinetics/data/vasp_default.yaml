@@ -1,0 +1,40 @@
+common:
+  xc: pbe
+  pp: potpaw_PBE.64
+  encut: 400
+  ismear: 0
+  ibrion: 2
+  nsw: 100
+  ediff: 1.0e-4
+  ediffg: -10.0e-2
+  prec: Normal
+  algo: Fast
+  lreal: Auto
+  nelm: 40
+  nelmin: 5
+  ncore: 4
+  npar: 4
+  lwave: false
+  lcharg: false
+  lorbit: 10
+  ispin: 1
+  lasph: false
+  isym: 0
+  potim: 0.2
+
+kinds:
+  molecule:
+    kpts: [1, 1, 1]
+    sigma: 0.05
+    isif: 2
+  surface:
+    kpts: [2, 2, 1]
+    sigma: 0.1
+    isif: 2
+    ldipol: true
+    idipol: 3
+  solid:
+    kpts: [2, 2, 2]
+    sigma: 0.1
+    isif: 3
+    isym: 2

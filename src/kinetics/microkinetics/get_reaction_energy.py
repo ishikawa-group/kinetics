@@ -68,7 +68,7 @@ def optimize_geometry(atoms=None, fmax=0.01, steps=100, work_dir=None) -> Atoms:
     return atoms_
 
 
-def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt", input_yaml=None,
+def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt", yaml_path=None,
                         verbose=False, dirname="work", opt_steps=100):
     """
     Calculate reaction energy for each reaction.
@@ -190,9 +190,11 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
 
                 if ads_type == "gaseous":
                     if mol[0] == "surf":
-                        atoms = set_calculator(atoms=atoms, kind="surface", calculator=calculator)
+                        # atoms = set_calculator(atoms=atoms, kind="surface", calculator=calculator, yaml_path=yaml_path)
+                        set_calculator(atoms=atoms, kind="surface", calculator=calculator, yaml_path=yaml_path)
                     else:
-                        atoms = set_calculator(atoms=atoms, kind="molecule", calculator=calculator)
+                        # atoms = set_calculator(atoms=atoms, kind="molecule", calculator=calculator, yaml_path=yaml_path)
+                        set_calculator(atoms=atoms, kind="molecule", calculator=calculator, yaml_path=yaml_path)
                         atoms.cell = [20, 20, 20]
                         atoms.pbc = True
                         atoms.center()
@@ -203,7 +205,7 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
                             atoms.calc.set(ispin=1)
 
                 elif ads_type == "surface":
-                    atoms.calc = calc_surf
+                    set_calculator(atoms=atoms, kind="surface", calculator=calculator, yaml_path=yaml_path)
 
                 elif ads_type == "adsorbed":
                     adsorbate = atoms
@@ -222,11 +224,11 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
                         formula = surf_.get_chemical_formula()
                         work_dir = Path(dirname) / formula
                         work_dir.mkdir(parents=True, exist_ok=True)
-                        surf_.calc = calc_surf
                         surf_.calc.directory = str(work_dir)
+                        set_calculator(atoms=surf_, kind="surface", calculator=calculator, yaml_path=yaml_path)
 
-                        if "vasp" in calculator and "plus" in dfttype:
-                            set_lmaxmix(atoms=surf_)
+                        # if "vasp" in calculator and "plus" in dfttype:
+                        #    set_lmaxmix(atoms=surf_)
 
                         optimize_geometry(atoms=surf_, steps=opt_steps, work_dir=work_dir)
                         register(db=tmpdb, atoms=surf_, data={"energy": 0.0})
@@ -236,7 +238,8 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
 
                     atoms = copy.deepcopy(surf_)
                     add_adsorbate(atoms, adsorbate, offset=offset, position=position, height=height)
-                    atoms = set_calculator(atoms=atoms, kind="surf", calculator=calculator)
+                    # atoms = set_calculator(atoms=atoms, kind="surface", calculator=calculator, yaml_path=yaml_path)
+                    set_calculator(atoms=atoms, kind="surface", calculator=calculator, yaml_path=yaml_path)
                 else:
                     msg = "Unknown adsorbate type"
                     logger.error(msg)
@@ -256,8 +259,8 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
 
                     atoms.calc.directory = str(work_dir)
 
-                    if "vasp" in calculator and "plus" in dfttype:
-                        set_lmaxmix(atoms=atoms)
+                    # if "vasp" in calculator and "plus" in dfttype:
+                    #     set_lmaxmix(atoms=atoms)
 
                     # do calculation
                     atoms = optimize_geometry(atoms=atoms, steps=opt_steps, work_dir=work_dir)

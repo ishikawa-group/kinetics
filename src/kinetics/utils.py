@@ -1143,13 +1143,13 @@ def set_initial_magmoms(atoms: Atoms) -> Atoms:
 
 
 def set_calculator(atoms: Atoms, kind: str, calculator: str = "mace",
-                   yaml_path: str = "data/vasp.yaml", calc_directory: str = "calc") -> Atoms:
+                   yaml_path: str = None, calc_directory: str = "calc"):
     """
     Create calculator instance based on parameters from YAML file and attach to atoms.
 
     Args:
         atoms: ASE atoms object
-        kind: "molecule" / "surface" / "bulk"
+        kind: "molecule" / "surface" / "solid"
         calculator: "vasp" / "mattersim" / "mace"- calculator type
         yaml_path: Path to YAML configuration file
         calc_directory: Calculation directory for VASP
@@ -1166,9 +1166,13 @@ def set_calculator(atoms: Atoms, kind: str, calculator: str = "mace",
     if calculator == "vasp":
         from ase.calculators.vasp import Vasp
 
+        if yaml_path is None:
+            # load default yaml file
+            yaml_path = Path(__file__).resolve().parent / "data" / "vasp_default.yaml"
+
         # Load YAML file directly
         try:
-            with open(yaml_path, 'r') as f:
+            with open(yaml_path, "r") as f:
                 vasp_params = yaml.safe_load(f)
         except FileNotFoundError:
             print(f"Error: VASP parameter file not found at {yaml_path}")
@@ -1177,22 +1181,25 @@ def set_calculator(atoms: Atoms, kind: str, calculator: str = "mace",
             print(f"Error parsing YAML file {yaml_path}: {e}")
             sys.exit(1)
 
-        if kind not in vasp_params['kinds']:
+        if kind not in vasp_params["kinds"]:
             raise ValueError(f"Invalid kind '{kind}'. Must be one of {list(vasp_params['kinds'].keys())}")
 
         # Copy common parameters
-        params = vasp_params['common'].copy()
+        params = vasp_params["common"].copy()
+
         # Update with kind-specific parameters
-        params.update(vasp_params['kinds'][kind])
+        params.update(vasp_params["kinds"][kind])
+
         # Set function argument parameters
-        params['directory'] = calc_directory
+        params["directory"] = calc_directory
 
         # Convert kpts to tuple (ASE expects tuple)
-        if 'kpts' in params and isinstance(params['kpts'], list):
-            params['kpts'] = tuple(params['kpts'])
+        if "kpts" in params and isinstance(params["kpts"], list):
+            params["kpts"] = tuple(params["kpts"])
 
         # Set calculator to atoms object and return
         atoms.calc = Vasp(**params)
+
         # Automatically set lmaxmix
         atoms = auto_lmaxmix(atoms)
 

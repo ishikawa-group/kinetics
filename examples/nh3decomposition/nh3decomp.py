@@ -30,6 +30,7 @@ if __name__ == "__main__":
     calculator = args.calculator
     out_json = args.out_json
     unique_id = args.unique_id
+    yaml_path = args.yaml_path
 
     # If unique_id is not provided, use the first one from surf_db
     if not Path(surf_db).exists():
@@ -58,8 +59,9 @@ if __name__ == "__main__":
     surf.translate([0, 0, -vacuum+0.1])
     surf = fix_lower_surface(atoms=surf)
 
-    deltaEs = get_reaction_energy(reaction_file=reaction_file, surface=surf,
-                                  calculator=calculator, verbose=True, dirname="work", opt_steps=20)
+    deltaEs = get_reaction_energy(reaction_file=reaction_file, surface=surf, calculator=calculator, 
+                                  yaml_path=yaml_path, verbose=True, dirname="work", opt_steps=1)
+                                  
     deltaEs = np.insert(deltaEs, 0, 0.0)   # add zero in the heading
 
     # rate = get_nh3_formation_rate(deltaEs=deltaEs, reaction_file=reaction_file, rds=5, debug=True)
