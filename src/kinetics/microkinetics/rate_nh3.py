@@ -21,10 +21,14 @@ def get_nh3_formation_rate(deltaEs=None, reaction_file=None, rds=0, T=300, debug
     p[gas["H2"]]  = p[gas["NH3"]]*conversion*(3.0/4.0)
     p = p / p_ref  # divide by reference pressure (p/p_0)
 
+    """
+    zpe should be included in the deltaEs
+    
     zpe = np.zeros(len(gas) + len(ads))
     zpe[gas["N2"]]  = 0.145
     zpe[gas["H2"]]  = 0.258
     zpe[gas["NH3"]] = 0.895
+    """
 
     # coverage
     theta = np.zeros(len(ads))
@@ -35,11 +39,13 @@ def get_nh3_formation_rate(deltaEs=None, reaction_file=None, rds=0, T=300, debug
     deltaSs[1] =  1.00e-3  # H2 desorption
     deltaSs[5] =  1.00e-3  # N3 desorption
 
+    """
     # zero-point energy (ZPE) in eV
     deltaZPEs    = np.zeros(rxn_num)
     deltaZPEs[0] = -zpe[gas["NH3"]]  # NH3 adsorption
     deltaZPEs[1] =  zpe[gas["H2"]]    # H2 formation
     deltaZPEs[5] =  zpe[gas["N2"]]    # N2 formation
+    """
 
     # thermal correction (translation + rotation) in eV
     deltaTherms    = np.zeros(rxn_num)
@@ -55,7 +61,8 @@ def get_nh3_formation_rate(deltaEs=None, reaction_file=None, rds=0, T=300, debug
 
     # reation energies (in eV) and equilibrium constant
     deltaEs  = np.array(deltaEs)
-    deltaHs  = deltaEs + deltaZPEs + deltaTherms
+    # deltaHs  = deltaEs + deltaZPEs + deltaTherms
+    deltaHs  = deltaEs + deltaTherms
     deltaGs  = deltaHs - T*deltaSs
     deltaGs += RTlnP
 

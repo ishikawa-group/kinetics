@@ -7,5 +7,15 @@
 # height: 1.7
 
 # fcc111, 3x3x4
-offset: [0.44, 0.44]
-height: 1.7
+atop:
+  offset: [0.11, 0.11]
+  height: 1.6
+bridge:
+  offset: [0.44, 0.44]
+  height: 1.6
+fcc:
+  offset: [0.44, 0.44]
+  height: 1.6
+hcp:
+  offset: [0.44, 0.44]
+  height: 1.6

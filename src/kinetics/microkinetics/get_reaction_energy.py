@@ -1,5 +1,7 @@
 from ase import Atoms
 
+VACUUM_FOR_MOLECULE = 20
+
 
 def register(db=None, atoms=None, data=None):
     formula = atoms.get_chemical_formula()
@@ -115,8 +117,6 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
     # load adsorbate position from "adsorbate.yaml"
     with open("adsorbate.yaml") as f:
         ads_params = yaml.safe_load(f)
-        offset = ads_params["offset"]
-        height = ads_params["height"]
 
     # rotational angle for adsorbed molecules
     # note: also input duplicated name (e.g. "HO" and "OH")
@@ -134,20 +134,16 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
     # magnetic elements -- magmom up for these elements
     magnetic_elements = ["Cr", "Mn", "Fe", "Co", "Ni"]
 
-    # zero-point energy (in cm^-1, NIST webbook, experimental)
-    add_zpe_here = False
+    # zero-point energy (in cm^-1) loaded from zpe.yaml
+    add_zpe_here = True
     zpe = {}
     cm_to_eV = 1.23984e-4
-    zpe_cm = {"H2": 2179.307,
-              "HO": 1850.688, "OH": 1850.688,
-              "H2O": 4504.0,
-              "HO2": 2962.8, "OOH": 2962.8, "O2H": 2962.8,
-              "O2": 787.3797,
-              "N2": 1175.778,
-              "HN": 1623.563, "NH": 1623.563,
-              "H2N": 4008.9, "NH2": 4008.9,
-              "H3N": 7214.5, "NH3": 7214.5,
-              }
+    
+    # load ZPE data from zpe.yaml
+    zpe_path = Path(__file__).resolve().parent.parent / "data" / "zpe.yaml"
+    with open(zpe_path) as f:
+        zpe_cm = yaml.safe_load(f)
+    
     for key, value in zpe_cm.items():
         zpe.update({key: value * cm_to_eV})
 
@@ -190,12 +186,12 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
 
                 if ads_type == "gaseous":
                     if mol[0] == "surf":
-                        # atoms = set_calculator(atoms=atoms, kind="surface", calculator=calculator, yaml_path=yaml_path)
-                        set_calculator(atoms=atoms, kind="surface", calculator=calculator, yaml_path=yaml_path)
+                        set_calculator(atoms=atoms, kind="surface", calculator=calculator,
+                                       yaml_path=yaml_path)
                     else:
-                        # atoms = set_calculator(atoms=atoms, kind="molecule", calculator=calculator, yaml_path=yaml_path)
-                        set_calculator(atoms=atoms, kind="molecule", calculator=calculator, yaml_path=yaml_path)
-                        atoms.cell = [20, 20, 20]
+                        set_calculator(atoms=atoms, kind="molecule", calculator=calculator,
+                                       yaml_path=yaml_path)
+                        atoms.cell = [VACUUM_FOR_MOLECULE] * 3
                         atoms.pbc = True
                         atoms.center()
 
@@ -225,7 +221,8 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
                         work_dir = Path(dirname) / formula
                         work_dir.mkdir(parents=True, exist_ok=True)
                         surf_.calc.directory = str(work_dir)
-                        set_calculator(atoms=surf_, kind="surface", calculator=calculator, yaml_path=yaml_path)
+                        set_calculator(atoms=surf_, kind="surface", calculator=calculator,
+                                       yaml_path=yaml_path)
 
                         # if "vasp" in calculator and "plus" in dfttype:
                         #    set_lmaxmix(atoms=surf_)
@@ -237,9 +234,15 @@ def get_reaction_energy(reaction_file="oer.txt", surface=None, calculator="emt",
                         pass
 
                     atoms = copy.deepcopy(surf_)
+
+                    # get site-specific offset and height
+                    site_params = ads_params.get(site)
+                    offset = site_params.get('offset', [0.0, 0.0])
+                    height = site_params.get('height', 1.6)
+
                     add_adsorbate(atoms, adsorbate, offset=offset, position=position, height=height)
-                    # atoms = set_calculator(atoms=atoms, kind="surface", calculator=calculator, yaml_path=yaml_path)
-                    set_calculator(atoms=atoms, kind="surface", calculator=calculator, yaml_path=yaml_path)
+                    set_calculator(atoms=atoms, kind="surface", calculator=calculator,
+                                   yaml_path=yaml_path)
                 else:
                     msg = "Unknown adsorbate type"
                     logger.error(msg)

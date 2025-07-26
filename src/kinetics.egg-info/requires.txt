@@ -1,5 +1,0 @@
-ase~=3.24
-pymatgen>=2025.1.9
-pyyaml~=6.0
-pyqt5==5.15.11
-mace-torch==0.3.13

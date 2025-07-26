@@ -10,7 +10,7 @@ from typing import Dict, List, Tuple, Optional, Any
 import numpy as np
 import pandas as pd
 from ase import Atom, Atoms
-from ase.build import fcc111
+from ase.build import surface
 from ase.calculators.emt import EMT
 from ase.data import atomic_numbers, reference_states
 from ase.db import connect
@@ -61,33 +61,41 @@ def vegard_lattice_constant(elements, fractions=None):
     return sum(_elemental_a(el) * frac for el, frac in zip(elements, fractions))
 
 
-def make_metal_surface(num_samples=1, output_dir="./", size=[3, 3, 3],
-                       elements=["Pt"], jsonfile="structures.json"):
+def make_metal_surface(num_samples=1, output_dir="./",
+                       size=[3, 3, 3], indices=[1, 1, 1],
+                       elements=["Pt"], jsonfile="structures.json") -> Atoms:
 
     if len(elements) == 1:
         # --- パラメータ設定 ---
         vacuum = DEFAULT_VACUUM
+
         # --- 出力先ディレクトリの設定 ---
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
+
         # 出力ファイルのパス（jsonを指定されたフォルダ内に出力）
         db_path = os.path.join(output_dir, jsonfile)
         if os.path.exists(db_path):
             os.remove(db_path)
         db = connect(db_path)
-        # Vegard法で格子定数を計算
-        lattice_const = vegard_lattice_constant(elements)
-        # fcc111Bulkの作成（基本はmainの構造）
-        surf = fcc111(symbol=elements[0], size=size, a=lattice_const, vacuum=vacuum, periodic=True)
+
+        # make surface
+        # surf = fcc111(symbol=elements[0], size=size, a=lattice_const, vacuum=vacuum, periodic=True)
+        surf = surface(lattice=elements[0], indices=indices, layers=size[2], vacuum=vacuum, periodic=True)
+        surf = surf * [size[0], size[1], 1]
+        surf.translate([0, 0, -vacuum + 0.1])
+
         # --- EMT計算器の設定（FutureWarning解消のため calc 属性を直接代入） ---
         surf.calc = EMT()
+
         # --- 表面情報の取得 ---
-        ads_info = surf.info["adsorbate_info"]
+        # ads_info = surf.info["adsorbate_info"]
+
         # --- データベースへの書き込み ---
         data = {
             "chemical_formula": surf.get_chemical_formula(),
-            "lattice_constant": float(lattice_const),
-            "adsorbate_info": ads_info
+            # "lattice_constant": float(lattice_const),
+            # "adsorbate_info": ads_info
         }
         db.write(surf, data=data)
         print(f"Structures saved to {db_path}")
@@ -96,9 +104,11 @@ def make_metal_surface(num_samples=1, output_dir="./", size=[3, 3, 3],
         db_path = _make_bimetallic_alloys(num_samples=num_samples, output_dir=output_dir,
                                           size=size, elements=elements, jsonfile=jsonfile)
 
+    return surf
+
 
 def _make_bimetallic_alloys(num_samples=10, output_dir="./", size=[3, 3, 3],
-                           elements=["Pt", "Ni"], jsonfile="structures.json"):
+                            elements=["Pt", "Ni"], jsonfile="structures.json"):
     # --- パラメータ設定 ---
     vacuum = DEFAULT_VACUUM
 
@@ -1150,13 +1160,35 @@ def set_calculator(atoms: Atoms, kind: str, calculator: str = "mace",
     Args:
         atoms: ASE atoms object
         kind: "molecule" / "surface" / "solid"
-        calculator: "vasp" / "mattersim" / "mace"- calculator type
+        calculator: "vasp" / "mattersim" / "mace" / "fairchem" - calculator type
         yaml_path: Path to YAML configuration file
         calc_directory: Calculation directory for VASP
 
     Returns:
         atoms: Atoms object with calculator set (ExpCellFilter for bulk calculations)
     """
+
+    # 設定変更を防ぐプロキシクラスを実装
+    class ProtectedCalculator:
+        def __init__(self, calculator):
+            self._calculator = calculator
+
+        def __getattr__(self, name):
+            if name == 'set':
+                def protected_set(*args, **kwargs):
+                    return self  # 何も変更せずに自身を返す
+
+                return protected_set
+
+            # Handle special methods used by deepcopy
+            if name.startswith('__') and name.endswith('__'):
+                raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+            try:
+                return getattr(self._calculator, name)
+            except AttributeError:
+                raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+
+
     import yaml
     import sys
     import torch
@@ -1234,20 +1266,6 @@ def set_calculator(atoms: Atoms, kind: str, calculator: str = "mace",
             dispersion_xc="pbe"
         )
 
-        # 設定変更を防ぐプロキシクラスを実装
-        class ProtectedCalculator:
-            def __init__(self, calculator):
-                self._calculator = calculator
-
-            def __getattr__(self, name):
-                if name == 'set':
-                    def protected_set(*args, **kwargs):
-                        print("Warning: Calculator settings are protected and cannot be modified")
-                        return self  # 何も変更せずに自身を返す
-
-                    return protected_set
-                return getattr(self._calculator, name)
-
         # 保護されたカリキュレータをセット
         atoms.calc = ProtectedCalculator(calculator)
 
@@ -1273,20 +1291,6 @@ def set_calculator(atoms: Atoms, kind: str, calculator: str = "mace",
             dispersion=False,  # Enable D3 dispersion corrections
         )
 
-        # 設定変更を防ぐプロキシクラスを実装
-        class ProtectedCalculator:
-            def __init__(self, calculator):
-                self._calculator = calculator
-
-            def __getattr__(self, name):
-                if name == 'set':
-                    def protected_set(*args, **kwargs):
-                        print("Warning: Calculator settings are protected and cannot be modified")
-                        return self  # 何も変更せずに自身を返す
-
-                    return protected_set
-                return getattr(self._calculator, name)
-
         # 保護されたカリキュレータをセット
         atoms.calc = ProtectedCalculator(calculator)
 
@@ -1300,42 +1304,20 @@ def set_calculator(atoms: Atoms, kind: str, calculator: str = "mace",
             atoms = atoms
 
     elif calculator == "mace":
-        from mace.calculators import mace_mp
+        from mace.calculators import mace_off
         from ase.filters import ExpCellFilter
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        base_url = "https://github.com/ACEsuit/mace-foundations/releases/download/mace_matpes_0/"
-        # model = "MACE-matpes-pbe-omat-ft.model"
-        model = "MACE-matpes-r2scan-omat-ft.model"
-
-        mace_calculator = mace_mp(model=base_url + model,
-                                  dispersion=True,
-                                  dispersion_xc="pbe",
-                                  default_dtype="float64",
-                                  device=device)
-
-        # 設定変更を防ぐプロキシクラスを実装
-        class ProtectedMaceCalculator:
-            def __init__(self, calculator):
-                self._calculator = calculator
-
-            def __getattr__(self, name):
-                if name == 'set':
-                    def protected_set(*args, **kwargs):
-                        return self  # 何も変更せずに自身を返す
-
-                    return protected_set
-
-                # Handle special methods used by deepcopy
-                if name.startswith('__') and name.endswith('__'):
-                    raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
-                try:
-                    return getattr(self._calculator, name)
-                except AttributeError:
-                    raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+        
+        # Use the built-in mace_off model which is more stable
+        mace_calculator = mace_off(
+            model="medium",
+            device=device,
+            default_dtype="float64"
+        )
 
         # 保護されたカリキュレータをセット
-        atoms.calc = ProtectedMaceCalculator(mace_calculator)
+        atoms.calc = ProtectedCalculator(mace_calculator)
 
         # Apply CellFilter for bulk calculations
         if kind == "bulk":
@@ -1345,9 +1327,69 @@ def set_calculator(atoms: Atoms, kind: str, calculator: str = "mace",
             atoms = atoms.atoms
         else:
             atoms = atoms
+    
+    elif calculator == "emt":
+        from ase.calculators.emt import EMT
+        from ase.filters import ExpCellFilter
+        
+        atoms.calc = EMT()
+        
+        # Apply CellFilter for bulk calculations  
+        if kind == "bulk":
+            atoms = ExpCellFilter(atoms)
 
+        if isinstance(atoms, ExpCellFilter):
+            atoms = atoms.atoms
+        else:
+            atoms = atoms
+    elif calculator == "fairchem":
+        from fairchem.core.calculate import pretrained_mlip
+        from fairchem.core.calculate.ase_calculator import FAIRChemCalculator
+        from fairchem.core.units.mlip_unit.api.inference import InferenceSettings
+
+        from ase.filters import FrechetCellFilter
+        from ase.optimize import FIRE, FIRE2, LBFGS, LBFGSLineSearch
+
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        model_name = "uma-s-1p1"
+        predictor = pretrained_mlip.get_predict_unit(model_name=model_name, device=device)
+
+        if kind == "bulk":
+            # Cell optimization step 1: Use "omat" task
+            fairchem_bulk_calculator = FAIRChemCalculator(predictor, task_name="omat")
+            atoms.calc = ProtectedCalculator(fairchem_bulk_calculator)
+
+            atoms = FrechetCellFilter(atoms)
+
+            # optimizer1 = LBFGSLineSearch(atoms)
+            # optimizer1.run(fmax=fmax, steps=steps)
+            # atoms = atoms.atoms  # Get the optimized atoms
+
+            # Bulk optimization step 2: Use "oc20" task
+            fairchem_oc20_calculator = FAIRChemCalculator(predictor, task_name="oc20")
+            atoms.calc = ProtectedCalculator(fairchem_oc20_calculator)
+
+            # optimizer2 = LBFGSLineSearch(atoms)
+            # optimizer2.run(fmax=fmax, steps=steps)
+
+        else:  # For "slab" and "gas"
+            fairchem_calculator = FAIRChemCalculator(predictor, task_name="oc20")
+            atoms.calc = ProtectedCalculator(fairchem_calculator)
+
+            # delete PBC for gas phase calculations
+            if kind == "gas":
+                atoms.set_pbc(False)
+
+            # --- Perform structure optimization
+            # optimizer = LBFGSLineSearch(atoms)
+            # optimizer.run(fmax=fmax, steps=steps)
+
+        if isinstance(atoms, FrechetCellFilter):
+            atoms = atoms.atoms
+        else:
+            atoms = atoms
     else:
-        raise ValueError("calculator must be 'vasp' or 'mace'")
+        raise ValueError("calculator must be 'vasp, 'mace', 'fairchem'")
 
     return atoms
 
@@ -1380,7 +1422,7 @@ def plot_free_energy_diagram(deltaGs: List[float], steps: List[str], work_dir: P
     plt.plot(range(len(steps)), cumulative_energies, 'o-', linewidth=2, markersize=8)
     plt.xlabel("Reaction Step")
     plt.ylabel("Free Energy (eV)")
-    plt.title("ORR Free Energy Diagram")
+    plt.title("ORR Free-Energy Diagram")
     plt.xticks(range(len(steps)), steps, rotation=45, ha='right')
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
@@ -1436,31 +1478,101 @@ def parallel_displacement(atoms, vacuum=DEFAULT_VACUUM):
     return surf
 
 
-def plot_energy_diagram(steps, values, color='blue', labels=None,
-                        label=None, line_width=0.3, alpha=1.0, marker='o',
-                        markersize=5, figname=None):
-    """Helper function to plot a energy profile with consistent styling."""
+def plot_energy_diagram(steps, values, color="blue", labels=None,
+                        label=None, marker="o", markersize=5, figname=None, yrange=None,
+                        parabola_points=None, parabola_heights=None):
+    """Simple energy profile plot with horizontal lines and connecting dashes.
+    
+    Args:
+        steps: x-coordinates for the energy points
+        values: y-coordinates (energy values) for the points
+        color: color for the plot elements
+        labels: labels for x-axis ticks
+        label: legend label
+        marker: marker style for points
+        markersize: size of markers
+        figname: filename to save the figure
+        yrange: y-axis range as [ymin, ymax]
+        parabola_points: tuple of indices (i, j) or list of tuples to connect with upward parabola
+        parabola_heights: heights for parabola peak (default 0.5), can be single value or list
+    """
     import matplotlib.pyplot as plt
 
-    # Plot horizontal lines
+    line_width = 0.3
+
+    # Plot horizontal lines for each step
     for i, step in enumerate(steps):
         line_label = label if i == 0 else None
         plt.hlines(values[i], step - line_width, step + line_width,
-                   color=color, alpha=alpha, linewidth=2.5, label=line_label)
+                   color=color, linewidth=2.5, label=line_label)
 
-    # Connect with dashed lines
+    # Normalize parabola_points to always be a list of tuples
+    parabola_connections = []
+    if parabola_points is not None:
+        if isinstance(parabola_points, tuple) and len(parabola_points) == 2:
+            # Single tuple case: (i, j)
+            parabola_connections = [parabola_points]
+        elif isinstance(parabola_points, list):
+            # List of tuples case: [(i, j), (k, l), ...]
+            parabola_connections = parabola_points
+
+    if parabola_heights is None:
+        parabola_heights = [1.0 for i in range(len(parabola_connections))]
+
+    # Connect steps with dashed lines (skip parabola connections if specified)
     for i in range(len(steps) - 1):
-        plt.plot([steps[i] + line_width, steps[i + 1] - line_width],
-                 [values[i], values[i + 1]], '--', color=color, alpha=alpha, linewidth=1.0)
+        # Check if this connection should be replaced with a parabola
+        # skip_connection = any((i, i+1) == connection for connection in parabola_connections)
+        skip_connection = (i, i + 1) in parabola_connections
 
-    plt.xticks(steps, labels, rotation=45, ha='right')
-    plt.tight_layout()
+        if skip_connection:
+            continue  # Skip this connection, will be drawn as parabola
+        plt.plot([steps[i] + line_width, steps[i + 1] - line_width],
+                 [values[i], values[i + 1]], '--', color=color, linewidth=1.0)
+
+    # Add parabola connections if specified
+    for idx, connection in enumerate(parabola_connections):
+        i, j = connection
+        if 0 <= i < len(steps) and 0 <= j < len(steps) and i != j:
+            # Connect the ends of the horizontal lines
+            x1, y1 = steps[i] + line_width, values[i]
+            x2, y2 = steps[j] - line_width, values[j]
+            
+            # Create upward parabola using three points: two endpoints and a midpoint above
+            x_mid = (x1 + x2) / 2
+            # y_mid = max(y1, y2) + abs(y2 - y1) * parabola_heights[idx]  # Height of parabola
+            y_mid = max(y1, y2) + parabola_heights[idx]  # Height of parabola
+
+            # Use three points to define the parabola: (x1, y1), (x_mid, y_mid), (x2, y2)
+            # Generate parabola points using quadratic interpolation
+            x_para = np.linspace(x1, x2, 100)
+            
+            # Quadratic interpolation using scipy
+            from scipy.interpolate import interp1d
+            x_points = np.array([x1, x_mid, x2])
+            y_points = np.array([y1, y_mid, y2])
+            
+            # Use quadratic interpolation
+            f_para = interp1d(x_points, y_points, kind='quadratic', 
+                              bounds_error=False, fill_value='extrapolate')
+            y_para = f_para(x_para)
+            
+            plt.plot(x_para, y_para, '-', color=color, linewidth=1.5, alpha=0.8)
 
     # Add markers
-    plt.plot(steps, values, marker, color=color, alpha=alpha,
-             markersize=markersize, linestyle='none')
+    plt.plot(steps, values, marker, color=color, markersize=markersize, linestyle='none')
 
-    if figname is not None:
+    # Set labels if provided
+    if labels:
+        plt.xticks(steps, labels, rotation=45, ha='right')
+
+    # Set y-axis range if provided
+    if yrange is not None:
+        plt.ylim(yrange)
+
+    plt.tight_layout()
+
+    if figname:
         plt.savefig(figname)
 
 
@@ -1501,3 +1613,136 @@ def make_plot(labels=None):
     plt.close()
 
     return str(output_dir / "ORR_free_energy_diagram.png")
+
+
+def make_hcp_bulk(element, size=(1, 1, 1), a=None, c=None, vacuum=0.0,
+               orthogonal=False, pbc=(True, True, True)):
+    """
+    Create a hexagonal close-packed (HCP) bulk structure.
+
+    Args:
+        element (str): Chemical symbol of the element (e.g., 'Ti', 'Zr', 'Mg', etc.)
+        size (tuple): Size of the supercell (nx, ny, nz)
+        a (float): Lattice constant 'a' in Å. If None, uses ASE's reference value.
+        c (float): Lattice constant 'c' in Å. If None, uses ideal c/a ratio (1.633).
+        vacuum (float): Add vacuum padding along z-direction in Å.
+        orthogonal (bool): If True, create an orthogonal cell (easier for some calculations).
+        pbc (tuple): Periodic boundary conditions (default: True in all directions).
+
+    Returns:
+        Atoms: ASE Atoms object representing the HCP bulk structure.
+    """
+    from ase.build import bulk
+    from ase.io import write
+
+    # Use ASE's bulk function to create an HCP structure
+    if a is None and c is None:
+        # Using ASE's database for element properties
+        atoms = bulk(element, 'hcp')
+    elif a is not None and c is None:
+        # Use provided 'a' and ideal c/a ratio of 1.633
+        c = a * 1.633
+        atoms = bulk(element, 'hcp', a=a, c=c)
+    else:
+        # Use both provided 'a' and 'c' values
+        atoms = bulk(element, 'hcp', a=a, c=c)
+
+    # Create a supercell
+    atoms = atoms * size
+
+    # Set periodic boundary conditions
+    atoms.set_pbc(pbc)
+
+    # Add vacuum if specified
+    if vacuum > 0:
+        z_max = max(atoms.positions[:, 2])
+        cell = atoms.get_cell()
+        cell[2, 2] = z_max + vacuum
+        atoms.set_cell(cell)
+
+    # Convert to orthogonal cell if requested
+    if orthogonal:
+        from ase.build import make_supercell
+
+        # Get the existing cell vectors
+        cell = atoms.get_cell()
+
+        # Create a transformation matrix for orthogonal cell
+        # This approach maintains the a and c parameters but makes an orthogonal cell
+        a1, a2, a3 = cell
+
+        # The new cell will have x along a1, z along a3, and y perpendicular to both
+        nx = int(size[0] * 2)
+        ny = int(size[1] * 2)
+        nz = int(size[2])
+
+        # Create transformation matrix
+        P = np.array([
+            [nx, 0, 0],
+            [0, ny, 0],
+            [0, 0, nz]
+        ])
+
+        # Make an orthogonal supercell
+        atoms = make_supercell(atoms, P)
+
+        # Apply vacuum again if needed (transformation might have changed the cell size)
+        if vacuum > 0:
+            z_max = max(atoms.positions[:, 2])
+            cell = atoms.get_cell()
+            cell[2, 2] = z_max + vacuum
+            atoms.set_cell(cell)
+
+    return atoms
+
+
+def make_hcp_surface(element, size=(3, 3, 3), a=None, c=None,
+                    facet='0001', vacuum=DEFAULT_VACUUM, layers=4):
+    """
+    Create a hexagonal close-packed (HCP) surface.
+
+    Args:
+        element (str): Chemical symbol of the element
+        size (tuple): Size of the supercell
+        a (float): Lattice constant 'a' in Å. If None, uses ASE's reference value.
+        c (float): Lattice constant 'c' in Å. If None, uses ideal c/a ratio.
+        facet (str): Surface facet, e.g., '0001', '10-10', '11-20'
+        vacuum (float): Vacuum thickness in Å
+        layers (int): Number of atomic layers
+
+    Returns:
+        Atoms: ASE Atoms object of the HCP surface
+    """
+    from ase.build import surface
+
+    # Create bulk first
+    bulk_atoms = make_hcp_bulk(element, size=(1, 1, 1), a=a, c=c)
+
+    # Convert facet string to Miller indices
+    if facet == '0001':
+        indices = (0, 0, 0, 1)
+    elif facet == '10-10':
+        indices = (1, 0, -1, 0)
+    elif facet == '11-20':
+        indices = (1, 1, -2, 0)
+    else:
+        try:
+            # Try to parse custom facet
+            indices = tuple(map(int, facet))
+        except ValueError:
+            raise ValueError(f"Unsupported facet: {facet}. Use '0001', '10-10', '11-20' or custom indices.")
+
+    # Create the surface
+    surface_atoms = surface(bulk_atoms, indices, layers, vacuum=0)
+
+    # Apply supercell
+    surface_atoms = surface_atoms * (size[0], size[1], 1)
+
+    # Add vacuum
+    surface_atoms.center(vacuum=vacuum, axis=2)
+
+    # Apply parallel_displacement to make the lowest atom at z=0
+    surface_atoms = parallel_displacement(surface_atoms, vacuum=vacuum)
+
+    return surface_atoms
+

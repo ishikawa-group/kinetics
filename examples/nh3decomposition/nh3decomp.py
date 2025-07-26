@@ -59,14 +59,16 @@ if __name__ == "__main__":
     surf.translate([0, 0, -vacuum+0.1])
     surf = fix_lower_surface(atoms=surf)
 
-    deltaEs = get_reaction_energy(reaction_file=reaction_file, surface=surf, calculator=calculator, 
-                                  yaml_path=yaml_path, verbose=True, dirname="work", opt_steps=1)
-                                  
+    deltaEs = get_reaction_energy(reaction_file=reaction_file, surface=surf, calculator="fairchem",
+                                  yaml_path=yaml_path, verbose=True, dirname="work", opt_steps=10)
+
     deltaEs = np.insert(deltaEs, 0, 0.0)   # add zero in the heading
 
     # rate = get_nh3_formation_rate(deltaEs=deltaEs, reaction_file=reaction_file, rds=5, debug=True)
     plot_energy_diagram(steps=range(len(deltaEs)), values=deltaEs, figname="deltaE.png",
                         labels=["NH$_3$", "NH$_3$*", "NH$_2$* + H*", "NH* + 2H*", "N* + 3H*",
-                                "0.5N$_2$ + 3H*", "0.5N$_2$ + 1.5H$_2$"])
+                                "0.5N$_2$ + 3H*", "0.5N$_2$ + 1.5H$_2$"], yrange=[-3.5, 1.5],
+                        parabola_points=[(1, 2), (2, 3), (3, 4), (4, 5)],
+                        parabola_heights=[1.0, 0.5, 0.5, 1.0])
 
     print("Done")

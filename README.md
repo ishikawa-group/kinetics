@@ -19,6 +19,7 @@
 
 #### Introduction
 * Here we consider the OER consists of following four elementary reactions.
+
 $$
 \begin{align*}
 \rm{H_2O + *}  &\rightarrow \rm{OH* + 1/2H_2}  \\
@@ -27,23 +28,29 @@ $$
 \rm{OOH*}      &\rightarrow \rm{O_2 + * + 1/2H_2}
 \end{align*}
 $$
+
 * These reactions have following meanings:
   1. Water adsorption and dissociation
   2. OH dehydrogenation to O
   3. Water oxidation to form OOH
   4. O2 evolution
 * To calculate the proton and electron Gibbs energy, the computational hydrogen electrode (CHE) is assumed:
+* 
 $$
 G_{\rm H^+} + G_{\rm e^-} = \frac{1}{2}G_{\rm H_2}
 $$
+
 * The Gibbs energy change of these reactions ($\Delta G$) is calcualted.
 * The overpotential $\eta$ is calculated by taking the maximum $\Delta G$ of these, and subtracting equilibrium potential.
+* 
 $$
 \eta = \max\{\Delta G_1, \Delta G_2, \Delta G_3, \Delta G_4\} - U_0
 $$
 
+
 #### Key parameters
 * Important parameters are as follows, in the above example code.
+
 ```python
 repeat = [2, 2, 2]         # Surface supercell size
 vacuum = 7.0               # Vacuum thickness (Å)
@@ -63,6 +70,7 @@ reaction_file = "oer.txt"  # OER reaction pathway definition
 #### Required Files
 * CIF files (single or multiple).
 * `oer.txt`: OER reaction pathway definition
+
    ```
    H2O + surf     --ads--> OH_fcc + 0.5*H2
    OH_fcc         --LH-->  O_fcc + 0.5*H2
@@ -86,9 +94,11 @@ $$
 \rm{OH* + H^+ + e^-}  &\rightarrow \rm{H_2O}
 \end{align*}
 $$
+
 * Likewise the OER, CHE is assumed to calculate the proton and electron Gibbs energy.
 
 #### Usage
+
 ```python
 from kinetics.microkinetics.orr_and_oer import get_overpotential_oer_orr
 
